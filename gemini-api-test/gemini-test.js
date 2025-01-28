@@ -25,6 +25,13 @@ async function processPDF(pdfPath) {
   console.log(result.response.text());
 }
 
+//responses contains markdown backticks which need to be removed
+function json_from_array(rawResponse) {
+  const jsonStart = rawResponse.indexOf('[');
+  const jsonEnd = rawResponse.lastIndexOf(']') + 1;
+  const jsonString = rawResponse.slice(jsonStart, jsonEnd);
+  return JSON.parse(jsonString);
+}
 
 async function questionPDF(pdfPath) {
   const uploadedFile = await uploadPDF(pdfPath);
@@ -43,11 +50,12 @@ async function questionPDF(pdfPath) {
   const jsonEnd = rawResponse.lastIndexOf(']') + 1;
   const jsonString = rawResponse.slice(jsonStart, jsonEnd);
 
-  const quizQuestions = JSON.parse(jsonString);
+  const quizQuestions = json_from_array(rawResponse);
   console.log("Quiz Questions:", quizQuestions);
 
   return quizQuestions;
 }
+
 
 async function evaluateAnswer(question, correctAnswer, userAnswer) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
@@ -70,7 +78,11 @@ async function evaluateAnswer(question, correctAnswer, userAnswer) {
     }
   `;
 
-  const result = await model.generateContent(prompt);
+  const result = await model.generateContent(
+    [{ text: prompt }],
+    { response_mime_type: "application/json" }
+  );
+
   const evaluation = JSON.parse(result.response.text());
 
   return evaluation;
@@ -116,7 +128,7 @@ async function evaluateAllAnswers(answers) {
   const prompt = `
     Evaluate the following quiz answers. For each answer, provide:
     1. Whether it's correct (true/false)
-    2. A score (0-1)
+    2. A percent accuracy score (0-100%)
     3. A brief explanation
 
     Questions and Answers:
@@ -135,8 +147,12 @@ async function evaluateAllAnswers(answers) {
     }
   `;
 
-  const result = await model.generateContent(prompt);
-  const evaluations = JSON.parse(result.response.text());
+  const result = await model.generateContent(
+    [{ text: prompt }],
+    { response_mime_type: "application/json" }
+  );
+
+  const evaluations = json_from_array(result.response.text());
 
   return evaluations;
 }
