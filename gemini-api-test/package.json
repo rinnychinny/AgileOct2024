@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "@google/generative-ai": "^0.21.0"
+    "@google/generative-ai": "^0.21.0",
+    "mime-types": "^2.1.35"
   }
 }
