@@ -7,9 +7,11 @@ async function main() {
     //First upload file to LLM
     const uploadedFile = await llm.uploadFile(test_file_path);
     
-    testSummary(uploadedFile);
+    await testChat(uploadedFile);
+    
+    //await testSummary(uploadedFile);
 
-    //testQuiz(uploadedFile);
+    //await testQuiz(uploadedFile);
 
 
   
@@ -18,21 +20,39 @@ async function main() {
   
   main();
 
+
+  async function testChat(uploadedFile) {
+
+    chat_so_far = [];
+    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please let me know how you feel today");
+
+    result = await llm.chatResponse(chat_so_far);
+    chat_so_far = llm.chat_add_response(chat_so_far, "assistant", result);
+
+    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please summarise the doc", uploadedFile);
+
+    result = await llm.chatResponse(chat_so_far);
+
+    console.log(result);
+
+}
+
+
+
   async function testSummary(uploadedFile) {
     //Then ask for summary
     console.log('Summary:');
     console.log(await llm.summariseFile(uploadedFile));
   }
 
-  async function testChat(uploadedFile) {
-
-  }
 
 async function testQuiz(uploadedFile) {
 
     console.log('Quiz:');
+    
     //Gather questions based on file
-    const questions = await llm.generateQuiz(uploadedFile);
+    const num_questions = 2
+    const questions = await llm.generateQuiz(uploadedFile, num_questions);
     
     //Gather user answers
     const userAnswers = [];
@@ -59,7 +79,8 @@ async function testQuiz(uploadedFile) {
       totalScore += eval.score;
     });
   
-    console.log(`Quiz complete! Your total score: ${totalScore}/${evaluations.length}`);
+    const percentScore = totalScore/evaluations.length;
+    console.log(`Quiz complete! Your total score: ${percentScore}%`);
 }
 
 const readline = require('readline');
