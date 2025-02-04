@@ -3,36 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload File</title>
+    <title>File Upload Manager</title>
+    <script>
+        async function fetchFiles() {
+            const response = await fetch('/files');
+            const files = await response.json();
+            const tableBody = document.getElementById('filesTableBody');
+            tableBody.innerHTML = '';
+            
+            files.forEach(file => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${file.uuid}</td>
+                    <td><a href="${file.filePath}" target="_blank">${file.fileName}</a></td>
+                    <td>${file.mimeType}</td>
+                    <td>${file.uploader}</td>
+                    <td>${file.summary || 'No Summary'}</td>
+                    <td><button onclick="editFile('${file._id}')">Edit</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+        
+        async function uploadFile(event) {
+            event.preventDefault();
+            const formData = new FormData(document.getElementById('uploadForm'));
+            await fetch('/upload', { method: 'POST', body: formData });
+            fetchFiles();
+        }
+        
+        async function editFile(id) {
+            const newSummary = prompt("Enter new summary:");
+            if (newSummary !== null) {
+                await fetch(`/edit/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ summary: newSummary })
+                });
+                fetchFiles();
+            }
+        }
+        
+        window.onload = fetchFiles;
+    </script>
 </head>
 <body>
-    <h1>Upload a File</h1>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" id="fileInput" name="file" required>
+    <h1>File Upload Manager</h1>
+    <form id="uploadForm" onsubmit="uploadFile(event)">
+        <input type="file" name="file" required>
+        <input type="text" name="uploader" placeholder="Uploader Name" required>
+        <input type="text" name="summary" placeholder="Summary" required>
         <button type="submit">Upload</button>
     </form>
-
-    <h2>Uploaded Files</h2>
-    <ul id="fileList"></ul>
-
-    <script>
-        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const formData = new FormData();
-            const fileInput = document.getElementById('fileInput').files[0];
-            formData.append("file", fileInput);
-
-            const response = await fetch("/upload", {
-                method: "POST",
-                body: formData
-            });
-
-            const result = await response.json();
-            const fileList = document.getElementById("fileList");
-            const listItem = document.createElement("li");
-            listItem.innerHTML = `<a href="${result.filePath}" target="_blank">${result.fileName}</a>`;
-            fileList.appendChild(listItem);
-        });
-    </script>
+    <hr>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>UUID</th>
+                <th>File</th>
+                <th>Type</th>
+                <th>Uploader</th>
+                <th>Summary</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="filesTableBody"></tbody>
+    </table>
 </body>
 </html>
