@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <script>
+        async function loginUser(event) {
+            event.preventDefault();
+            const formData = new FormData(document.getElementById('loginForm'));
+            
+            const response = await fetch('/login', {
+                method: 'POST',
+                body: JSON.stringify({
+                    username: formData.get('username'),
+                    password: formData.get('password')
+                }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                window.location.href = '/upload.html'; // Redirect to file upload page
+            } else {
+                alert('Invalid credentials. Please try again.');
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>Login</h1>
+    <form id="loginForm" onsubmit="loginUser(event)">
+        <input type="text" name="username" placeholder="Username" required>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">Login</button>
+    </form>
+</body>
+</html>

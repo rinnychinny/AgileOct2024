@@ -7,10 +7,21 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
+const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
 
 const app = express();
 const PORT = 3000;
 const SECRET_KEY = "your_secret_key"; // Change this to a secure key
+
+// SQLite Database Connection
+const db = new sqlite3.Database('./backend/db/db.sqlite', (err) => {
+    if (err) {
+        console.error('Error connecting to SQLite database:', err);
+    } else {
+        console.log('Connected to SQLite database');
+    }
+});
 
 // Middleware
 app.use(express.json());
@@ -20,38 +31,54 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, '../frontend'))); // Serve static frontend files
 
-// MongoDB Connection
-mongoose.connect('mongodb://localhost:27017/fileuploads', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-});
-
-const fileSchema = new mongoose.Schema({
-    fileName: String,
-    mimeType: String,
-    uploader: String,
-    comments: String,
-    filePath: String,
-    uuid: { type: String, unique: true, default: uuidv4 },
-    createdAt: { type: Date, default: Date.now }
-});
-
-const File = mongoose.model('File', fileSchema);
-
 // Authentication Middleware
 const authenticateUser = (req, res, next) => {
     const token = req.cookies.authToken;
     if (!token) {
-        return res.status(401).json({ message: 'Access denied. Please log in.' });
+        return res.redirect('/login.html');
     }
     try {
         const verified = jwt.verify(token, SECRET_KEY);
         req.user = verified;
         next();
     } catch (err) {
-        res.status(400).json({ message: 'Invalid token.' });
+        return res.redirect('/login.html');
     }
 };
+
+// User Login Route (Using SQLite for Authentication)
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
+        if (err) {
+            return res.status(500).json({ message: 'Database error' });
+        }
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+        
+        // Compare hashed password
+        bcrypt.compare(password, user.password_hash, (err, match) => {
+            if (err || !match) {
+                return res.status(401).json({ message: 'Invalid credentials' });
+            }
+            const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+            res.cookie('authToken', token, { httpOnly: true });
+            res.redirect('/upload.html');
+        });
+    });
+});
+
+// User Logout Route
+app.get('/logout', (req, res) => {
+    res.clearCookie('authToken');
+    res.redirect('/login.html');
+});
+
+// Serve login page as default
+app.get('/', (req, res) => {
+    res.redirect('/login.html');
+});
 
 // Multer Storage Configuration
 const storage = multer.diskStorage({
