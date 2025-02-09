@@ -1,144 +1,157 @@
 const express = require('express');
-const mongoose = require('mongoose');
-const multer = require('multer');
 const path = require('path');
-const cors = require('cors');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
+const fs = require('fs');
 
 const app = express();
 const PORT = 3000;
-const SECRET_KEY = "your_secret_key"; // Change this to a secure key
+const SECRET_KEY = "your_secret_key";
 
-// SQLite Database Connection
-const db = new sqlite3.Database('./db/db.sqlite', (err) => {
-    if (err) {
-        console.error('Error connecting to SQLite database:', err);
-    } else {
-        console.log('Connected to SQLite database');
-    }
+// ✅ Connect to SQLite (Ensure correct path)
+const dbPromise = open({
+    filename: path.join(__dirname, './db/db.sqlite'),
+    driver: sqlite3.Database
 });
 
-// Middleware
+//Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cors());
 app.use(cookieParser());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use(express.static(path.join(__dirname, '../frontend'))); // Serve static frontend files
+app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Authentication Middleware
-const authenticateUser = (req, res, next) => {
-    const token = req.cookies.authToken;
-    if (!token) {
-        return res.redirect('/login.html');
-    }
-    try {
-        const verified = jwt.verify(token, SECRET_KEY);
-        req.user = verified;
-        next();
-    } catch (err) {
-        return res.redirect('/login.html');
-    }
-};
+//Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// User Login Route (Using username/hash password in SQLite DB for Authentication)
-app.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
-        if (err) {
-            return res.status(500).json({ message: 'Database error' });
-        }
-        if (!user) {
-            return res.status(401).json({ message: 'Invalid user' });
-        }
-        
-        // Compare hashed password
-        bcrypt.compare(password, user.password_hash, (err, match) => {
-            if (err || !match) {
-                return res.status(401).json({ message: 'Invalid password' });
-            }
-            const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
-            res.cookie('authToken', token, { httpOnly: true });
-            res.status(200).json({ success: true, redirectUrl: '/file_uploader.html' });        });
-    });
-});
-
-// User Logout Route
-app.get('/logout', (req, res) => {
-    res.clearCookie('authToken');
-    res.redirect('/login.html');
-});
-
-// Serve login page as default
+//Redirect root ("/") to login page
 app.get('/', (req, res) => {
     res.redirect('/login.html');
 });
 
-// Multer Storage Configuration
+
+//Configure Multer (Store Files with Original Names)
 const storage = multer.diskStorage({
-    destination: './uploads/',
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
     filename: (req, file, cb) => {
-        cb(null, file.originalname); // Keep original filename
+        cb(null, file.originalname); // ✅ Keep original filename
+    }
+});
+const upload = multer({ storage });
+
+// ✅ Middleware: Authenticate User via Cookie
+const authenticateUser = async (req, res, next) => {
+    const token = req.cookies.authToken;
+    if (!token) {
+        return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    try {
+        const decoded = jwt.verify(token, SECRET_KEY);
+        req.user = decoded;
+        next();
+    } catch (err) {
+        return res.status(403).json({ message: "Invalid or expired token" });
+    }
+};
+
+// ✅ Fetch Current Logged-in User
+app.get('/current-user', authenticateUser, (req, res) => {
+    res.json({ username: req.user.username });
+});
+
+// ✅ User Login Route
+app.post('/login', async (req, res) => {
+    try {
+        const db = await dbPromise;
+        const { username, password } = req.body;
+
+        // ✅ Fetch user from SQLite database
+        const user = await db.get(`SELECT * FROM users WHERE username = ?`, [username]);
+
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Invalid username or password' });
+        }
+
+        // ✅ Validate password with bcrypt
+        const match = await bcrypt.compare(password, user.password_hash);
+
+        if (!match) {
+            return res.status(401).json({ success: false, message: 'Invalid password' });
+        }
+
+        // ✅ Generate JWT token
+        const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
+
+        // ✅ Set HTTP-only cookie (for security)
+        res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
+
+        res.status(200).json({ success: true, redirectUrl: '/file_uploader.html' });
+
+    } catch (error) {
+        console.error("Login error:", error);
+        res.status(500).json({ success: false, message: 'Server error. Try again.' });
     }
 });
 
-const upload = multer({ storage });
-
-// Upload Route (Protected)
+// ✅ Upload File (Keep Original Name)
 app.post('/upload', authenticateUser, upload.single('file'), async (req, res) => {
-    const uploader = req.user.username; // Automatically use logged-in user
-    const { comments } = req.body;
-    const newFile = new File({
-        fileName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        uploader,
-        comments,
-        filePath: `/uploads/${req.file.originalname}`,
-        uuid: uuidv4(),
-        createdAt: new Date()
-    });
-    await newFile.save();
-    res.status(201).send('File uploaded successfully');
+    const db = await dbPromise;
+    const file = req.file;
+
+    if (!file) return res.status(400).json({ message: "No file uploaded" });
+
+    const filePath = `/uploads/${file.originalname}`; // ✅ Store file in /uploads/ with its original name
+
+    // ✅ Insert into SQLite database
+    const result = await db.run(
+        `INSERT INTO files (fileName, filePath, mimeType, uploader, comments) VALUES (?, ?, ?, ?, ?)`,
+        [file.originalname, filePath, file.mimetype, req.user.username, req.body.comments || null]
+    );
+
+    res.json({ message: "File uploaded successfully!", fileUrl: filePath, fileId: result.lastID });
 });
 
-// Get All Files
+// ✅ Fetch All Files
 app.get('/files', authenticateUser, async (req, res) => {
-    const files = await File.find();
+    const db = await dbPromise;
+    const files = await db.all(`SELECT * FROM files ORDER BY createdAt DESC`);
     res.json(files);
 });
 
-// Edit File Comments (Protected)
+// ✅ Edit File Metadata
 app.put('/edit/:id', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
     const { comments } = req.body;
-    await File.findByIdAndUpdate(req.params.id, { comments });
-    res.send('Comments updated');
+    const { id } = req.params;
+
+    await db.run(`UPDATE files SET comments = ? WHERE id = ?`, [comments, id]);
+    res.json({ message: "File metadata updated successfully" });
 });
 
-// Delete File Route (Protected)
+// ✅ Delete File (Also Remove from File System)
 app.delete('/delete/:id', authenticateUser, async (req, res) => {
-    const file = await File.findById(req.params.id);
-    if (file) {
-        // Remove file from the filesystem
-        fs.unlink(path.join(__dirname, file.filePath), (err) => {
-            if (err) {
-                console.error("File deletion error:", err);
-            }
-        });
-        
-        // Remove file record from database
-        await File.findByIdAndDelete(req.params.id);
-        res.send('File deleted successfully');
-    } else {
-        res.status(404).send('File not found');
-    }
+    const db = await dbPromise;
+    const { id } = req.params;
+
+    // ✅ Fetch file path before deleting
+    const file = await db.get(`SELECT filePath FROM files WHERE id = ?`, [id]);
+    if (!file) return res.status(404).json({ message: "File not found" });
+
+    // ✅ Delete file from filesystem
+    const fullFilePath = path.join(__dirname, '../', file.filePath);
+    if (fs.existsSync(fullFilePath)) fs.unlinkSync(fullFilePath);
+
+    // ✅ Remove from database
+    await db.run(`DELETE FROM files WHERE id = ?`, [id]);
+    res.json({ message: "File deleted successfully" });
 });
 
-// Start Server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// ✅ Start Server
+app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));

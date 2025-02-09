@@ -1,3 +1,5 @@
+-- In powershell run Get-Content schema.sql | sqlite3 db.sqlite
+
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,3 +24,17 @@ INSERT INTO users (username, password_hash, role)
 --uses brcypt hash for plaintext inst123
 SELECT 'insti_test',  '$2a$10$JQXx6hzoEwftaSRQtGk1N.ZonYdz1JblI3a4yUbe0aTZvUBJJPCo.', 'insti'
 WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'insti_test');
+
+-- Create the "files" table to store metadata and file paths
+CREATE TABLE IF NOT EXISTS files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileName TEXT NOT NULL,
+    filePath TEXT NOT NULL,
+    mimeType TEXT NOT NULL,
+    uploader TEXT NOT NULL,
+    comments TEXT,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
