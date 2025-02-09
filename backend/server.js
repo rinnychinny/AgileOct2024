@@ -15,7 +15,7 @@ const PORT = 3000;
 const SECRET_KEY = "your_secret_key"; // Change this to a secure key
 
 // SQLite Database Connection
-const db = new sqlite3.Database('./backend/db/db.sqlite', (err) => {
+const db = new sqlite3.Database('./db/db.sqlite', (err) => {
     if (err) {
         console.error('Error connecting to SQLite database:', err);
     } else {
@@ -46,7 +46,7 @@ const authenticateUser = (req, res, next) => {
     }
 };
 
-// User Login Route (Using SQLite for Authentication)
+// User Login Route (Using username/hash password in SQLite DB for Authentication)
 app.post('/login', (req, res) => {
     const { username, password } = req.body;
     db.get('SELECT * FROM users WHERE username = ?', [username], (err, user) => {
@@ -54,18 +54,17 @@ app.post('/login', (req, res) => {
             return res.status(500).json({ message: 'Database error' });
         }
         if (!user) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            return res.status(401).json({ message: 'Invalid user' });
         }
         
         // Compare hashed password
         bcrypt.compare(password, user.password_hash, (err, match) => {
             if (err || !match) {
-                return res.status(401).json({ message: 'Invalid credentials' });
+                return res.status(401).json({ message: 'Invalid password' });
             }
             const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
             res.cookie('authToken', token, { httpOnly: true });
-            res.redirect('/upload.html');
-        });
+            res.status(200).json({ success: true, redirectUrl: '/file_uploader.html' });        });
     });
 });
 
