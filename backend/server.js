@@ -7,12 +7,13 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const PORT = 3000;
 const SECRET_KEY = "your_secret_key";
 
-// ✅ Connect to SQLite (Ensure correct path)
+//Promise to Connect to SQLite and use async/await rather than callbacks 
 const dbPromise = open({
     filename: path.join(__dirname, './db/db.sqlite'),
     driver: sqlite3.Database
@@ -32,7 +33,6 @@ app.get('/', (req, res) => {
 });
 
 
-//Configure Multer (Store Files with Original Names)
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         const uploadDir = path.join(__dirname, '../uploads');
@@ -40,12 +40,15 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
-        cb(null, file.originalname); // ✅ Keep original filename
+        const ext = path.extname(file.originalname);
+        const uuid = uuidv4(); //Generate UUID
+        cb(null, `${uuid}${ext}`); //Save file as UUID.ext
     }
 });
+
 const upload = multer({ storage });
 
-// ✅ Middleware: Authenticate User via Cookie
+//Middleware: authenticate User via cookie
 const authenticateUser = async (req, res, next) => {
     const token = req.cookies.authToken;
     if (!token) {
@@ -61,12 +64,12 @@ const authenticateUser = async (req, res, next) => {
     }
 };
 
-// ✅ Fetch Current Logged-in User
+//Fetch Current Logged-in User
 app.get('/current-user', authenticateUser, (req, res) => {
     res.json({ username: req.user.username });
 });
 
-// ✅ User Login Route
+//User Login Route
 app.post('/login', async (req, res) => {
     try {
         const db = await dbPromise;
@@ -100,28 +103,28 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// ✅ Upload File (Keep Original Name)
+//Upload File with UUID Filename but keep original name in source field
 app.post('/upload', authenticateUser, upload.single('file'), async (req, res) => {
     const db = await dbPromise;
     const file = req.file;
 
     if (!file) return res.status(400).json({ message: "No file uploaded" });
 
-    const filePath = `/uploads/${file.originalname}`; // ✅ Store file in /uploads/ with its original name
+    const filePath = `/uploads/${file.filename}`; //UUID filename for storage
 
-    // ✅ Insert into SQLite database
+    //Insert into SQLite database
     const result = await db.run(
-        `INSERT INTO files (fileName, filePath, mimeType, uploader, comments) VALUES (?, ?, ?, ?, ?)`,
-        [file.originalname, filePath, file.mimetype, req.user.username, req.body.comments || null]
+        `INSERT INTO files (source, fileName, filePath, mimeType, uploader, comments) VALUES (?, ?, ?, ?, ?, ?)`,
+        [file.originalname, file.filename, filePath, file.mimetype, req.user.username, req.body.comments || null]
     );
 
     res.json({ message: "File uploaded successfully!", fileUrl: filePath, fileId: result.lastID });
 });
 
-// ✅ Fetch All Files
+//Fetch All Files
 app.get('/files', authenticateUser, async (req, res) => {
     const db = await dbPromise;
-    const files = await db.all(`SELECT * FROM files ORDER BY createdAt DESC`);
+    const files = await db.all(`SELECT * FROM files ORDER BY createdAt ASC`);
     res.json(files);
 });
 

@@ -28,36 +28,35 @@
             }
         }
 
-        // ✅ Fetch all uploaded files
         async function fetchFiles() {
-            try {
-                const response = await fetch('/files', { credentials: 'include' });
-                if (!response.ok) {
-                    throw new Error("Failed to fetch files");
-                }
-                const files = await response.json();
-                const tableBody = document.getElementById('filesTableBody');
-                tableBody.innerHTML = '';
-
-                files.forEach(file => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${file.id}</td>
-                        <td><a href="${file.filePath}" target="_blank">${file.fileName}</a></td>
-                        <td>${file.mimeType}</td>
-                        <td>${file.uploader}</td>
-                        <td>${file.comments || 'No Comments'}</td>
-                        <td>${new Date(file.createdAt).toLocaleString()}</td>
-                        <td><button onclick="editFile(${file.id})">Edit</button></td>
-                        <td><button onclick="deleteFile(${file.id})">Delete</button></td>
-                    `;
-                    tableBody.appendChild(row);
-                });
-            } catch (error) {
-                console.error("Error fetching files:", error);
-                alert("Failed to load files.");
-            }
+    try {
+        const response = await fetch('/files', { credentials: 'include' });
+        if (!response.ok) {
+            throw new Error("Failed to fetch files");
         }
+        const files = await response.json();
+        const tableBody = document.getElementById('filesTableBody');
+        tableBody.innerHTML = '';
+
+        files.forEach(file => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${file.id}</td>
+                <td><a href="${file.filePath}" target="_blank">${file.source}</a></td> <!-- Show original filename -->
+                <td>${file.mimeType}</td>
+                <td>${file.uploader}</td>
+                <td>${file.comments || 'No Comments'}</td>
+                <td>${new Date(file.createdAt).toLocaleString()}</td>
+                <td><button onclick="editFile(${file.id})">Edit</button></td>
+                <td><button onclick="deleteFile(${file.id})">Delete</button></td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (error) {
+        console.error("Error fetching files:", error);
+        alert("Failed to load files.");
+    }
+}
 
         // ✅ Upload a new file
         async function uploadFile(event) {

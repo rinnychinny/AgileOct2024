@@ -28,6 +28,7 @@ WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'insti_test');
 -- Create the "files" table to store metadata and file paths
 CREATE TABLE IF NOT EXISTS files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
     fileName TEXT NOT NULL,
     filePath TEXT NOT NULL,
     mimeType TEXT NOT NULL,
