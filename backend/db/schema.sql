@@ -37,5 +37,23 @@ CREATE TABLE IF NOT EXISTS files (
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create "courses" table to store course metadata
+CREATE TABLE IF NOT EXISTS courses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    courseName TEXT NOT NULL,
+    creator TEXT NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create "course_files" table to store the relationship between courses and files
+CREATE TABLE IF NOT EXISTS course_files (
+    courseId INTEGER NOT NULL,
+    fileId INTEGER NOT NULL,
+    orderIndex INTEGER NOT NULL, -- Determines order in the course
+    PRIMARY KEY (courseId, orderIndex),
+    FOREIGN KEY (courseId) REFERENCES courses(id) ON DELETE CASCADE,
+    FOREIGN KEY (fileId) REFERENCES files(id) ON DELETE CASCADE
+);
+
 
 

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Courses</title>
+    <script>
+        let selectedCourseId = null;
+
+        // ✅ Fetch all courses
+        async function fetchCourses() {
+            try {
+                const response = await fetch('/courses', { credentials: 'include' });
+                if (!response.ok) throw new Error("Failed to fetch courses: " + response.statusText);
+
+                const courses = await response.json();
+                const tableBody = document.getElementById('coursesTableBody');
+                tableBody.innerHTML = '';
+
+                courses.forEach(course => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${course.id}</td>
+                        <td><a href="#" onclick="viewCourse(${course.id})">${course.courseName}</a></td>
+                        <td>${course.creator}</td>
+                        <td><button onclick="deleteCourse(${course.id})">Delete</button></td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Error fetching courses:", error);
+                alert("Failed to load courses. Please login.");
+                window.location.href = "/login.html"; // Redirect to login page if unauthorized
+            }
+        }
+
+        // ✅ Create a new course
+        async function createCourse(event) {
+            event.preventDefault();
+            const courseName = document.getElementById('courseName').value.trim();
+
+            if (!courseName) {
+                alert("Course name cannot be empty.");
+                return;
+            }
+
+            try {
+                const response = await fetch('/courses', {
+                    method: 'POST',
+                    body: JSON.stringify({ courseName }),
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.message || "Failed to create course.");
+                }
+
+                alert("Course created successfully!");
+                fetchCourses();
+                document.getElementById('createCourseForm').reset();
+            } catch (error) {
+                console.error("Create course error:", error);
+                alert("Failed to create course.");
+            }
+        }
+
+        // ✅ Fetch course materials when a course is selected
+        async function viewCourse(courseId) {
+            selectedCourseId = courseId;
+            document.getElementById('courseMaterials').style.display = 'block';
+
+            try {
+                const response = await fetch(`/courses/${courseId}/materials`, { credentials: 'include' });
+                if (!response.ok) throw new Error("Failed to fetch materials");
+
+                const materials = await response.json();
+                const tableBody = document.getElementById('materialsTableBody');
+                tableBody.innerHTML = '';
+
+                materials.forEach((file, index) => {
+                    const row = document.createElement('tr');
+                    row.setAttribute('draggable', 'true');
+                    row.setAttribute('ondragstart', `drag(event, ${file.id})`);
+                    row.setAttribute('data-file-id', file.id);
+
+                    row.innerHTML = `
+                        <td><a href="${file.filePath}" target="_blank">${file.source}</a></td>
+                        <td>${file.mimeType}</td>
+                        <td><button onclick="removeFile(${file.id})">Remove</button></td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Error fetching materials:", error);
+            }
+        }
+
+        // ✅ Fetch all available files (for selection when adding)
+        async function fetchFiles() {
+            try {
+                const response = await fetch('/files', { credentials: 'include' });
+                if (!response.ok) throw new Error("Failed to fetch files");
+
+                const files = await response.json();
+                const select = document.getElementById('fileSelect');
+                select.innerHTML = '<option value="">-- Select a File --</option>';
+
+                files.forEach(file => {
+                    select.innerHTML += `<option value="${file.id}">${file.source}</option>`;
+                });
+            } catch (error) {
+                console.error("Error fetching files:", error);
+            }
+        }
+
+        // ✅ Add a file to the course
+        async function addFile() {
+            const fileId = document.getElementById('fileSelect').value;
+            if (!fileId || !selectedCourseId) return alert("Select a file first.");
+
+            try {
+                await fetch(`/courses/${selectedCourseId}/add-file`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ fileId })
+                });
+
+                viewCourse(selectedCourseId);
+            } catch (error) {
+                console.error("Error adding file:", error);
+            }
+        }
+
+        // ✅ Remove a file from the course
+        async function removeFile(fileId) {
+            if (!confirm("Are you sure you want to remove this file?")) return;
+
+            try {
+                await fetch(`/courses/${selectedCourseId}/remove-file/${fileId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+
+                viewCourse(selectedCourseId);
+            } catch (error) {
+                console.error("Error removing file:", error);
+            }
+        }
+
+        // ✅ Drag-and-Drop Functionality for Reordering
+        function drag(event, fileId) {
+            event.dataTransfer.setData("fileId", fileId);
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        async function drop(event) {
+            event.preventDefault();
+            const fileId = event.dataTransfer.getData("fileId");
+
+            const materials = [...document.getElementById("materialsTableBody").children].map((row, index) => {
+                return {
+                    fileId: row.getAttribute("data-file-id"),
+                    orderIndex: index
+                };
+            });
+
+            await fetch(`/courses/${selectedCourseId}/update-order`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ orderedFiles: materials })
+            });
+
+            viewCourse(selectedCourseId);
+        }
+
+        window.onload = () => {
+            fetchCourses();
+            fetchFiles();
+        };
+    </script>
+</head>
+<body>
+    <h1>Manage Courses</h1>
+
+    <!-- ✅ Course Creation Form -->
+    <h2>Create a New Course</h2>
+    <form id="createCourseForm" onsubmit="createCourse(event)">
+        <input type="text" id="courseName" placeholder="Course Name" required>
+        <button type="submit">Create Course</button>
+    </form>
+
+    <hr>
+
+    <!-- ✅ Course List -->
+    <h2>Available Courses</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Course Name</th>
+                <th>Creator</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="coursesTableBody"></tbody>
+    </table>
+
+    <hr>
+
+    <!-- ✅ Manage Course Materials -->
+    <div id="courseMaterials" style="display: none;">
+        <h2>Course Materials</h2>
+        <table border="1" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <thead>
+                <tr>
+                    <th>File</th>
+                    <th>Type</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="materialsTableBody"></tbody>
+        </table>
+
+        <h3>Add File to Course</h3>
+        <select id="fileSelect"></select>
+        <button onclick="addFile()">Add File</button>
+    </div>
+</body>
+</html>

@@ -156,5 +156,102 @@ app.delete('/delete/:id', authenticateUser, async (req, res) => {
     res.json({ message: "File deleted successfully" });
 });
 
-// ✅ Start Server
+//Fetch all courses
+app.get('/courses', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const courses = await db.all(`SELECT * FROM courses ORDER BY createdAt DESC`);
+    res.json(courses);
+});
+
+//Get course materials for specified course
+app.get('/courses/:id/materials', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id } = req.params;
+
+    //Get course materials
+    const materials = await db.all(`
+        SELECT f.id, f.source, f.filePath, f.mimeType
+        FROM course_files cf
+        JOIN files f ON cf.fileId = f.id
+        WHERE cf.courseId = ?
+        ORDER BY cf.orderIndex ASC
+    `, [id]);
+
+    res.json(materials);
+});
+
+//Create a new course
+app.post('/courses', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { courseName } = req.body;
+
+    if (!courseName) {
+        return res.status(400).json({ message: "Course name is required" });
+    }
+
+    //Insert new course into the database
+    const result = await db.run(
+        `INSERT INTO courses (courseName, creator) VALUES (?, ?)`,
+        [courseName, req.user.username]
+    );
+
+    res.json({ message: "Course created successfully!", courseId: result.lastID });
+});
+
+// ✅ Delete a course (Removes the course and its associated files)
+app.delete('/courses/:id', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id } = req.params;
+
+    // ✅ Delete associated files from the course_files table
+    await db.run(`DELETE FROM course_files WHERE courseId = ?`, [id]);
+
+    // ✅ Delete the course itself
+    await db.run(`DELETE FROM courses WHERE id = ?`, [id]);
+
+    res.json({ message: "Course deleted successfully!" });
+});
+
+//Add a file to a course
+app.post('/courses/:id/add-file', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id } = req.params;
+    const { fileId } = req.body;
+
+    // ✅ Get current max orderIndex in the course
+    const maxOrder = await db.get(`SELECT MAX(orderIndex) as maxOrder FROM course_files WHERE courseId = ?`, [id]);
+    const newOrderIndex = (maxOrder?.maxOrder || 0) + 1;
+
+    await db.run(
+        `INSERT INTO course_files (courseId, fileId, orderIndex) VALUES (?, ?, ?)`,
+        [id, fileId, newOrderIndex]
+    );
+
+    res.json({ message: "File added to course!" });
+});
+
+//Remove a file from a course
+app.delete('/courses/:id/remove-file/:fileId', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id, fileId } = req.params;
+
+    await db.run(`DELETE FROM course_files WHERE courseId = ? AND fileId = ?`, [id, fileId]);
+    res.json({ message: "File removed from course!" });
+});
+
+//Update course material order
+app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id } = req.params;
+    const { orderedFiles } = req.body; // Array of { fileId, orderIndex }
+
+    for (const file of orderedFiles) {
+        await db.run(`UPDATE course_files SET orderIndex = ? WHERE courseId = ? AND fileId = ?`,
+            [file.orderIndex, id, file.fileId]);
+    }
+
+    res.json({ message: "Course order updated!" });
+});
+
+//Start Server
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
