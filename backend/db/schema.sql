@@ -47,10 +47,10 @@ CREATE TABLE IF NOT EXISTS courses (
 
 -- Create "course_files" table to store the relationship between courses and files
 CREATE TABLE IF NOT EXISTS course_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     courseId INTEGER NOT NULL,
     fileId INTEGER NOT NULL,
     orderIndex INTEGER NOT NULL, -- Determines order in the course
-    PRIMARY KEY (courseId, orderIndex),
     FOREIGN KEY (courseId) REFERENCES courses(id) ON DELETE CASCADE,
     FOREIGN KEY (fileId) REFERENCES files(id) ON DELETE CASCADE
 );

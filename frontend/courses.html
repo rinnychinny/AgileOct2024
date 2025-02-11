@@ -7,7 +7,7 @@
     <script>
         let selectedCourseId = null;
 
-        // ✅ Fetch all courses
+        //Fetch all courses
         async function fetchCourses() {
             try {
                 const response = await fetch('/courses', { credentials: 'include' });
@@ -34,7 +34,40 @@
             }
         }
 
-        // ✅ Create a new course
+        //delete an existing course
+        async function deleteCourse(courseId) {
+        if (!confirm("Are you sure you want to delete this course? This will also remove all associated materials.")) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/courses/${courseId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Failed to delete course.");
+            }
+
+            alert("Course deleted successfully!");
+
+            //Reset active course selection
+            selectedCourseId = null;
+
+            // Hide course materials section
+            document.getElementById('courseMaterials').style.display = 'none';
+            
+            fetchCourses(); // Refresh course list
+
+        } catch (error) {
+            console.error("Error deleting course:", error);
+            alert("Error: Unable to delete course.");
+        }
+    }
+
+    //Create a new course
         async function createCourse(event) {
             event.preventDefault();
             const courseName = document.getElementById('courseName').value.trim();
@@ -66,29 +99,44 @@
             }
         }
 
-        // ✅ Fetch course materials when a course is selected
+        //Fetch course materials (files) when a course is selected
         async function viewCourse(courseId) {
             selectedCourseId = courseId;
             document.getElementById('courseMaterials').style.display = 'block';
 
             try {
+                
+                // Fetch course details
+                const courseResponse = await fetch(`/courses/${courseId}`, { credentials: 'include' });
+                if (!courseResponse.ok) throw new Error("Failed to fetch course details");
+                const courseData = await courseResponse.json();
+
+                // Set course name in header
+                document.getElementById('selectedCourseName').textContent = courseData.courseName;
+
+                
                 const response = await fetch(`/courses/${courseId}/materials`, { credentials: 'include' });
                 if (!response.ok) throw new Error("Failed to fetch materials");
 
+                console.log("Here!");
                 const materials = await response.json();
+                console.log("materials:", materials);
+
                 const tableBody = document.getElementById('materialsTableBody');
                 tableBody.innerHTML = '';
 
                 materials.forEach((file, index) => {
                     const row = document.createElement('tr');
                     row.setAttribute('draggable', 'true');
-                    row.setAttribute('ondragstart', `drag(event, ${file.id})`);
-                    row.setAttribute('data-file-id', file.id);
+                    row.setAttribute('ondragstart', `drag(event, ${file.file_id})`);
+                    row.setAttribute('data-course-file-id', file.coursefile_id); // Use `course_files.id`
 
                     row.innerHTML = `
+                        <td>${file.orderIndex}</td>
+                        <td>${file.file_id}</td>
                         <td><a href="${file.filePath}" target="_blank">${file.source}</a></td>
                         <td>${file.mimeType}</td>
-                        <td><button onclick="removeFile(${file.id})">Remove</button></td>
+                        <td><button onclick="removeFile(${file.coursefile_id})">Remove</button></td>
                     `;
                     tableBody.appendChild(row);
                 });
@@ -97,7 +145,7 @@
             }
         }
 
-        // ✅ Fetch all available files (for selection when adding)
+        //Fetch all available files (for selection when adding to a course)
         async function fetchFiles() {
             try {
                 const response = await fetch('/files', { credentials: 'include' });
@@ -115,7 +163,7 @@
             }
         }
 
-        // ✅ Add a file to the course
+        //Add a file to the course
         async function addFile() {
             const fileId = document.getElementById('fileSelect').value;
             if (!fileId || !selectedCourseId) return alert("Select a file first.");
@@ -134,21 +182,22 @@
             }
         }
 
-        // ✅ Remove a file from the course
-        async function removeFile(fileId) {
-            if (!confirm("Are you sure you want to remove this file?")) return;
+        //Remove a file from the course
+        async function removeFile(courseFileId) {
+        if (!confirm("Are you sure you want to remove this file?")) return;
 
-            try {
-                await fetch(`/courses/${selectedCourseId}/remove-file/${fileId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
+        try {
+            await fetch(`/courses/${selectedCourseId}/remove-file/${courseFileId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            viewCourse(selectedCourseId);
 
-                viewCourse(selectedCourseId);
-            } catch (error) {
-                console.error("Error removing file:", error);
-            }
+        } catch (error) {
+            console.error("Error removing file:", error);
         }
+    }
+
 
         // ✅ Drag-and-Drop Functionality for Reordering
         function drag(event, fileId) {
@@ -160,25 +209,32 @@
         }
 
         async function drop(event) {
-            event.preventDefault();
-            const fileId = event.dataTransfer.getData("fileId");
+    event.preventDefault();
+    const fileId = event.dataTransfer.getData("fileId");
 
-            const materials = [...document.getElementById("materialsTableBody").children].map((row, index) => {
-                return {
-                    fileId: row.getAttribute("data-file-id"),
-                    orderIndex: index
-                };
-            });
+    // Get the new order from the DOM
+    const materials = [...document.getElementById("materialsTableBody").children].map((row, index) => {
+        return {
+            fileId: parseInt(row.getAttribute("data-file-id")),
+            orderIndex: index
+        };
+    });
 
-            await fetch(`/courses/${selectedCourseId}/update-order`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ orderedFiles: materials })
-            });
+    try {
+        await fetch(`/courses/${selectedCourseId}/update-order`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ orderedFiles: materials })
+        });
 
-            viewCourse(selectedCourseId);
-        }
+        // Refresh the list
+        viewCourse(selectedCourseId);
+    } catch (error) {
+        console.error("Error updating order:", error);
+    }
+}
+
 
         window.onload = () => {
             fetchCourses();
@@ -216,10 +272,12 @@
 
     <!-- ✅ Manage Course Materials -->
     <div id="courseMaterials" style="display: none;">
-        <h2>Course Materials</h2>
+        <h2>Course Materials - <span id="selectedCourseName"></span></h2>
         <table border="1" ondrop="drop(event)" ondragover="allowDrop(event)">
             <thead>
                 <tr>
+                    <th>Order</th>
+                    <th>File ID</th>
                     <th>File</th>
                     <th>Type</th>
                     <th>Action</th>

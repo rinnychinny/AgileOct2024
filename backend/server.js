@@ -163,6 +163,27 @@ app.get('/courses', authenticateUser, async (req, res) => {
     res.json(courses);
 });
 
+//get course information for a particular course ID
+app.get('/courses/:id', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const { id } = req.params;
+
+    try {
+        const course = await db.get(`SELECT * FROM courses WHERE id = ?`, [id]);
+
+        if (!course) {
+            return res.status(404).json({ message: "Course not found." });
+        }
+
+        res.json(course);
+    } catch (error) {
+        console.error("Error fetching course details:", error);
+        res.status(500).json({ message: "Failed to fetch course details." });
+    }
+});
+
+
+
 //Get course materials for specified course
 app.get('/courses/:id/materials', authenticateUser, async (req, res) => {
     const db = await dbPromise;
@@ -170,7 +191,7 @@ app.get('/courses/:id/materials', authenticateUser, async (req, res) => {
 
     //Get course materials
     const materials = await db.all(`
-        SELECT f.id, f.source, f.filePath, f.mimeType
+        SELECT cf.id coursefile_id, f.id file_id, f.source, f.filePath, f.mimeType, cf.orderIndex
         FROM course_files cf
         JOIN files f ON cf.fileId = f.id
         WHERE cf.courseId = ?
@@ -230,28 +251,62 @@ app.post('/courses/:id/add-file', authenticateUser, async (req, res) => {
     res.json({ message: "File added to course!" });
 });
 
-//Remove a file from a course
-app.delete('/courses/:id/remove-file/:fileId', authenticateUser, async (req, res) => {
+//Remove a row (file) from a course
+app.delete('/courses/:courseId/remove-file/:courseFileId', authenticateUser, async (req, res) => {
     const db = await dbPromise;
-    const { id, fileId } = req.params;
+    const { courseFileId } = req.params;
 
-    await db.run(`DELETE FROM course_files WHERE courseId = ? AND fileId = ?`, [id, fileId]);
-    res.json({ message: "File removed from course!" });
+    try {
+        // Delete only the specific row based on `course_files.id`
+        console.log("Deleting:",courseFileId);
+        const result = await db.run(`DELETE FROM course_files WHERE id = ?`, [courseFileId]);
+
+        if (result.changes === 0) {
+            return res.status(404).json({ message: "File not found in course." });
+        }
+
+        res.json({ message: "File removed from course successfully!" });
+    } catch (error) {
+        console.error("Error removing file:", error);
+        res.status(500).json({ message: "Failed to remove file from course." });
+    }
 });
 
-//Update course material order
+
+//Reorder course materials
 app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { id } = req.params;
     const { orderedFiles } = req.body; // Array of { fileId, orderIndex }
+    console.log(orderedFiles);
 
-    for (const file of orderedFiles) {
-        await db.run(`UPDATE course_files SET orderIndex = ? WHERE courseId = ? AND fileId = ?`,
-            [file.orderIndex, id, file.fileId]);
+    try {
+        await db.run("BEGIN TRANSACTION");
+
+        // Step 1: Temporarily set all orderIndex values to a negative version
+        await db.run(`UPDATE course_files SET orderIndex = orderIndex * -1 WHERE courseId = ?`, [id]);
+
+        // Step 2: Assign correct order indices
+        let updateQuery = `UPDATE course_files SET orderIndex = CASE `;
+        orderedFiles.forEach(file => {
+            updateQuery += ` WHEN fileId = ${file.fileId} AND courseId = ${id} THEN ${file.orderIndex} `;
+        });
+        updateQuery += ` ELSE orderIndex END WHERE courseId = ${id};`;
+
+        console.log(updateQuery);
+        await db.run(updateQuery);
+
+        console.log("commit");
+        await db.run("COMMIT");
+        res.json({ message: "Course order updated successfully!" });
+    } catch (error) {
+        await db.run("ROLLBACK");
+        console.error("Error updating order:", error);
+        res.status(500).json({ message: "Failed to update order." });
     }
-
-    res.json({ message: "Course order updated!" });
 });
+
+
 
 //Start Server
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
