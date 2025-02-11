@@ -118,9 +118,7 @@
                 const response = await fetch(`/courses/${courseId}/materials`, { credentials: 'include' });
                 if (!response.ok) throw new Error("Failed to fetch materials");
 
-                console.log("Here!");
                 const materials = await response.json();
-                console.log("materials:", materials);
 
                 const tableBody = document.getElementById('materialsTableBody');
                 tableBody.innerHTML = '';
@@ -199,7 +197,7 @@
     }
 
 
-        // ✅ Drag-and-Drop Functionality for Reordering
+        //Drag-and-Drop Functionality for Reordering
         function drag(event, fileId) {
             event.dataTransfer.setData("fileId", fileId);
         }
@@ -209,23 +207,36 @@
         }
 
         async function drop(event) {
-    event.preventDefault();
-    const fileId = event.dataTransfer.getData("fileId");
+            event.preventDefault();
+            const draggedFileId = event.dataTransfer.getData("fileId");
+            const draggedRow = document.querySelector(`[data-course-file-id='${draggedFileId}']`);
+            const targetRow = event.target.closest("tr");
 
-    // Get the new order from the DOM
-    const materials = [...document.getElementById("materialsTableBody").children].map((row, index) => {
-        return {
-            fileId: parseInt(row.getAttribute("data-file-id")),
-            orderIndex: index
-        };
-    });
+            if (!draggedRow || !targetRow || draggedRow === targetRow) return;
+
+            const tbody = document.getElementById("materialsTableBody");
+
+    // ✅ Insert dragged row before target row
+    tbody.insertBefore(draggedRow, targetRow);
+
+    // ✅ Clear dragging visual effect
+    draggedRow.classList.remove("dragging");
+
+    // ✅ Generate new order based on updated DOM
+    const newOrder = [...tbody.children].map((row, index) => ({
+        courseFileId: parseInt(row.getAttribute("data-course-file-id")),
+        orderIndex: index
+    }));
+
+    console.log("New order:", newOrder);
 
     try {
+        //console.log(materials);
         await fetch(`/courses/${selectedCourseId}/update-order`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ orderedFiles: materials })
+            body: JSON.stringify({ orderedFiles: newOrder })
         });
 
         // Refresh the list

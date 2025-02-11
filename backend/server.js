@@ -277,26 +277,18 @@ app.delete('/courses/:courseId/remove-file/:courseFileId', authenticateUser, asy
 app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { id } = req.params;
-    const { orderedFiles } = req.body; // Array of { fileId, orderIndex }
+    const { orderedFiles } = req.body; // Array of { courseFileId, orderIndex }
     console.log(orderedFiles);
 
     try {
         await db.run("BEGIN TRANSACTION");
 
-        // Step 1: Temporarily set all orderIndex values to a negative version
-        await db.run(`UPDATE course_files SET orderIndex = orderIndex * -1 WHERE courseId = ?`, [id]);
+        // ✅ Use parameterized queries for security
+        const updatePromises = orderedFiles.map(({ courseFileId, orderIndex }) =>
+            db.run(`UPDATE course_files SET orderIndex = ? WHERE id = ? AND courseId = ?`, [orderIndex, courseFileId, id])
+        );
 
-        // Step 2: Assign correct order indices
-        let updateQuery = `UPDATE course_files SET orderIndex = CASE `;
-        orderedFiles.forEach(file => {
-            updateQuery += ` WHEN fileId = ${file.fileId} AND courseId = ${id} THEN ${file.orderIndex} `;
-        });
-        updateQuery += ` ELSE orderIndex END WHERE courseId = ${id};`;
-
-        console.log(updateQuery);
-        await db.run(updateQuery);
-
-        console.log("commit");
+        await Promise.all(updatePromises);
         await db.run("COMMIT");
         res.json({ message: "Course order updated successfully!" });
     } catch (error) {
