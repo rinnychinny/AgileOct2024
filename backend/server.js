@@ -128,6 +128,29 @@ app.get('/files', authenticateUser, async (req, res) => {
     res.json(files);
 });
 
+app.get('/files/details', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const fileIds = req.query.fileIds?.split(',') || [];
+
+    if (fileIds.length === 0) {
+        return res.status(400).json({ message: "No file IDs provided" });
+    }
+
+    try {
+        // Use placeholders in SQL to prevent injection
+        const placeholders = fileIds.map(() => '?').join(',');
+        const files = await db.all(
+            `SELECT id, source, filePath FROM files WHERE id IN (${placeholders})`, 
+            fileIds
+        );
+
+        res.json(files);
+    } catch (error) {
+        console.error("Error fetching file details:", error);
+        res.status(500).json({ message: "Failed to retrieve file details." });
+    }
+});
+
 // ✅ Edit File Metadata
 app.put('/edit/:id', authenticateUser, async (req, res) => {
     const db = await dbPromise;

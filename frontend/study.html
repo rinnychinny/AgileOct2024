@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Study Trainer</title>
+    <script>
+        async function getStudyMaterials() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const fileIdsParam = urlParams.get('fileIds');
+
+            if (!fileIdsParam) {
+                document.getElementById('studyContainer').innerHTML = "<p>No study materials selected.</p>";
+                return;
+            }
+
+            const fileIds = fileIdsParam.split(',');
+
+            try {
+                // Fetch file details from the server
+                const response = await fetch(`/files/details?fileIds=${fileIds.join(',')}`);
+                if (!response.ok) throw new Error("Failed to fetch file details");
+
+                const files = await response.json();
+                const container = document.getElementById('studyContainer');
+                container.innerHTML = ''; // Clear previous content
+
+                files.forEach(file => {
+                    const fileElement = document.createElement('div');
+                    fileElement.innerHTML = `
+                        <p><strong>File ID:</strong> ${file.id}</p>
+                        <p><strong>Source:</strong> ${file.source}</p>
+                        <p><a href="${file.filePath}" target="_blank">Open File</a></p>
+                        <hr>
+                    `;
+                    container.appendChild(fileElement);
+                });
+            } catch (error) {
+                console.error("Error fetching study materials:", error);
+                document.getElementById('studyContainer').innerHTML = "<p>Error loading materials.</p>";
+            }
+        }
+
+        window.onload = getStudyMaterials;
+    </script>
+</head>
+<body>
+    <h1>Study Trainer</h1>
+    <div id="studyContainer">Loading...</div>
+</body>
+</html>

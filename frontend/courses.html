@@ -124,11 +124,11 @@
 
                 materials.forEach((file, index) => {
                     const row = document.createElement('tr');
-                    row.setAttribute('draggable', 'true');
-                    row.setAttribute('ondragstart', `drag(event, ${file.file_id})`);
-                    row.setAttribute('data-course-file-id', file.coursefile_id); // Use `course_files.id`
+                    row.setAttribute('data-course-file-id', file.coursefile_id); // Uses `course_files.id`
+                    row.setAttribute('data-file-id', file.file_id); // Uses `course_files.fileId`
 
                     row.innerHTML = `
+                        <td><input type="checkbox" class="study-checkbox" value="${file.filePath}"></td>
                         <td>${file.orderIndex}</td>
                         <td>${file.file_id}</td>
                         <td><a href="${file.filePath}" target="_blank">${file.source}</a></td>
@@ -222,53 +222,27 @@
     }
 
 
-        //Drag-and-Drop Functionality for Reordering
-        function drag(event, fileId) {
-            event.dataTransfer.setData("fileId", fileId);
-        }
+function launchStudyTrainer() {
+    const selectedCheckboxes = document.querySelectorAll('.study-checkbox:checked');
 
-        function allowDrop(event) {
-            event.preventDefault();
-        }
-
-        async function drop(event) {
-            event.preventDefault();
-            const draggedFileId = event.dataTransfer.getData("fileId");
-            const draggedRow = document.querySelector(`[data-course-file-id='${draggedFileId}']`);
-            const targetRow = event.target.closest("tr");
-
-            if (!draggedRow || !targetRow || draggedRow === targetRow) return;
-
-            const tbody = document.getElementById("materialsTableBody");
-
-    // ✅ Insert dragged row before target row
-    tbody.insertBefore(draggedRow, targetRow);
-
-    // ✅ Clear dragging visual effect
-    draggedRow.classList.remove("dragging");
-
-    // ✅ Generate new order based on updated DOM
-    const newOrder = [...tbody.children].map((row, index) => ({
-        courseFileId: parseInt(row.getAttribute("data-course-file-id")),
-        orderIndex: index
-    }));
-
-    console.log("New order:", newOrder);
-
-    try {
-        //console.log(materials);
-        await fetch(`/courses/${selectedCourseId}/update-order`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ orderedFiles: newOrder })
-        });
-
-        // Refresh the list
-        viewCourse(selectedCourseId);
-    } catch (error) {
-        console.error("Error updating order:", error);
+    if (selectedCheckboxes.length === 0) {
+        alert("Please select at least one study material.");
+        return;
     }
+
+    const fileIds = [];
+
+    selectedCheckboxes.forEach(checkbox => {
+        const row = checkbox.closest('tr');
+        const fileId = row.getAttribute('data-file-id'); // Get file ID
+
+        console.log(fileId);
+        fileIds.push(fileId);
+    });
+
+    // Open study.html with file IDs in URL parameters
+    const url = `study.html?fileIds=${fileIds.join(',')}`;
+    window.open(url, '_blank');
 }
 
 
@@ -312,6 +286,7 @@
         <table border="1" ondrop="drop(event)" ondragover="allowDrop(event)">
             <thead>
                 <tr>
+                    <th>Select</th>
                     <th>Order</th>
                     <th>File ID</th>
                     <th>File</th>
@@ -322,9 +297,15 @@
             <tbody id="materialsTableBody"></tbody>
         </table>
 
-        <h3>Add File to Course</h3>
-        <select id="fileSelect"></select>
-        <button onclick="addFile()">Add File</button>
+        <div>
+            <h3>Add File to Course</h3>
+            <select id="fileSelect"></select>
+            <button onclick="addFile()">Add File</button>
+        </div>
+        <div>
+            <h3>Study Trainer</h3>
+            <button onclick="launchStudyTrainer()">Launch</button>
+        </div>
     </div>
 </body>
 </html>
