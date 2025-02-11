@@ -114,7 +114,6 @@
                 // Set course name in header
                 document.getElementById('selectedCourseName').textContent = courseData.courseName;
 
-                
                 const response = await fetch(`/courses/${courseId}/materials`, { credentials: 'include' });
                 if (!response.ok) throw new Error("Failed to fetch materials");
 
@@ -134,7 +133,11 @@
                         <td>${file.file_id}</td>
                         <td><a href="${file.filePath}" target="_blank">${file.source}</a></td>
                         <td>${file.mimeType}</td>
-                        <td><button onclick="removeFile(${file.coursefile_id})">Remove</button></td>
+                        <td>
+                            <button onclick="moveMaterial(${file.coursefile_id}, -1)">Move Up</button>
+                            <button onclick="moveMaterial(${file.coursefile_id}, 1)">Move Down</button>
+                            <button onclick="removeFile(${file.coursefile_id})">Remove</button>
+                        </td>
                     `;
                     tableBody.appendChild(row);
                 });
@@ -143,6 +146,28 @@
             }
         }
 
+        async function moveMaterial(courseFileId, direction) {
+            const rows = [...document.querySelectorAll('#materialsTableBody tr')];
+            const index = rows.findIndex(row => row.getAttribute('data-course-file-id') == courseFileId);
+            if ((index === 0 && direction === -1) || (index === rows.length - 1 && direction === 1)) {
+                return;
+            }
+            
+            const targetRow = rows[index + direction];
+            const targetCourseFileId = targetRow.getAttribute('data-course-file-id');
+            
+            try {
+                await fetch(`/courses/${selectedCourseId}/update-order`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ firstCourseFileId: courseFileId, secondCourseFileId: targetCourseFileId })
+                });
+                viewCourse(selectedCourseId);
+            } catch (error) {
+                console.error("Error updating order:", error);
+            }
+        }        
         //Fetch all available files (for selection when adding to a course)
         async function fetchFiles() {
             try {
