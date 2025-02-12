@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Courses</title>
+    <title>Manage Materials</title>
     <script>
         let selectedCourseId = null;
 
@@ -255,7 +255,9 @@ function launchStudyTrainer() {
 <body>
     <h1>Manage Courses</h1>
 
-    <!-- ✅ Course Creation Form -->
+    <a href="file_uploader.html" target="_blank" style="display: inline-block; margin-bottom: 10px; padding: 8px 12px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px;">Upload New Files</a>
+
+    <!--Course Creation Form -->
     <h2>Create a New Course</h2>
     <form id="createCourseForm" onsubmit="createCourse(event)">
         <input type="text" id="courseName" placeholder="Course Name" required>
@@ -264,8 +266,9 @@ function launchStudyTrainer() {
 
     <hr>
 
-    <!-- ✅ Course List -->
+    <!--Course List -->
     <h2>Available Courses</h2>
+    <h3>Please click on a course to view and edit materials, or create a new course above.</h3>
     <table border="1">
         <thead>
             <tr>
@@ -280,10 +283,10 @@ function launchStudyTrainer() {
 
     <hr>
 
-    <!-- ✅ Manage Course Materials -->
+    <!-- Manage Course Materials -->
     <div id="courseMaterials" style="display: none;">
         <h2>Course Materials - <span id="selectedCourseName"></span></h2>
-        <table border="1" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <table border="1">
             <thead>
                 <tr>
                     <th>Select</th>
@@ -300,12 +303,14 @@ function launchStudyTrainer() {
         <div>
             <h3>Add File to Course</h3>
             <select id="fileSelect"></select>
-            <button onclick="addFile()">Add File</button>
+            <button onclick="addFile()">Add File To Course</button>
+            <button onclick="fetchFiles()">Refresh File List</button>
+
         </div>
         <div>
             <h3>Study Trainer</h3>
-            <button onclick="launchStudyTrainer()">Launch</button>
+            <button onclick="launchStudyTrainer()">Launch Study Trainer on these Materials</button>
         </div>
-    </div>
+        </div>
 </body>
 </html>
