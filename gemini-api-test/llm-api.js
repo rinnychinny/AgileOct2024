@@ -55,7 +55,7 @@ async function summariseFile(uploadedFile) {
 //********* chat functionality ***************************************************
 //********************************************************************************
 
-//helper function to create multi turn chats int he correct format
+//helper function to create multi turn chats in the correct format
 function chat_add_response(chat, role_to_add, text_to_add, uploadedFile = null) {
   
   //create text element of parts

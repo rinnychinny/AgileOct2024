@@ -128,6 +128,29 @@ app.get('/files', authenticateUser, async (req, res) => {
     res.json(files);
 });
 
+app.get('/files/details', authenticateUser, async (req, res) => {
+    const db = await dbPromise;
+    const fileIds = req.query.fileIds?.split(',') || [];
+
+    if (fileIds.length === 0) {
+        return res.status(400).json({ message: "No file IDs provided" });
+    }
+
+    try {
+        // Use placeholders in SQL to prevent injection
+        const placeholders = fileIds.map(() => '?').join(',');
+        const files = await db.all(
+            `SELECT id, source, filePath FROM files WHERE id IN (${placeholders})`, 
+            fileIds
+        );
+
+        res.json(files);
+    } catch (error) {
+        console.error("Error fetching file details:", error);
+        res.status(500).json({ message: "Failed to retrieve file details." });
+    }
+});
+
 // ✅ Edit File Metadata
 app.put('/edit/:id', authenticateUser, async (req, res) => {
     const db = await dbPromise;
@@ -258,7 +281,6 @@ app.delete('/courses/:courseId/remove-file/:courseFileId', authenticateUser, asy
 
     try {
         // Delete only the specific row based on `course_files.id`
-        console.log("Deleting:",courseFileId);
         const result = await db.run(`DELETE FROM course_files WHERE id = ?`, [courseFileId]);
 
         if (result.changes === 0) {
@@ -277,24 +299,25 @@ app.delete('/courses/:courseId/remove-file/:courseFileId', authenticateUser, asy
 app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { id } = req.params;
-    const { orderedFiles } = req.body; // Array of { courseFileId, orderIndex }
-    console.log(orderedFiles);
-
+    const { firstCourseFileId, secondCourseFileId } = req.body;
+    
     try {
-        await db.run("BEGIN TRANSACTION");
+        // Fetch the current order indices of both items
+        const firstItem = await db.get(`SELECT id, orderIndex FROM course_files WHERE id = ? AND courseId = ?`, [firstCourseFileId, id]);
+        const secondItem = await db.get(`SELECT id, orderIndex FROM course_files WHERE id = ? AND courseId = ?`, [secondCourseFileId, id]);
+        
+        if (!firstItem || !secondItem) {
+            return res.status(404).json({ message: "One or both files not found in course." });
+        }
+        
+        // Swap the order indices
+        await db.run(`UPDATE course_files SET orderIndex = ? WHERE id = ?`, [secondItem.orderIndex, firstItem.id]);
+        await db.run(`UPDATE course_files SET orderIndex = ? WHERE id = ?`, [firstItem.orderIndex, secondItem.id]);
 
-        // ✅ Use parameterized queries for security
-        const updatePromises = orderedFiles.map(({ courseFileId, orderIndex }) =>
-            db.run(`UPDATE course_files SET orderIndex = ? WHERE id = ? AND courseId = ?`, [orderIndex, courseFileId, id])
-        );
-
-        await Promise.all(updatePromises);
-        await db.run("COMMIT");
-        res.json({ message: "Course order updated successfully!" });
+        res.json({ message: "Course material order swapped successfully." });
     } catch (error) {
-        await db.run("ROLLBACK");
-        console.error("Error updating order:", error);
-        res.status(500).json({ message: "Failed to update order." });
+        console.error("Error swapping course material order:", error);
+        res.status(500).json({ message: "Failed to swap order." });
     }
 });
 
