@@ -56,17 +56,22 @@ async function summariseFile(uploadedFile) {
 //********************************************************************************
 
 //helper function to create multi turn chats in the correct format
-function chat_add_response(chat, role_to_add, text_to_add, uploadedFile = null) {
+function chat_add_response(chat, role_to_add, text_to_add, uploadedFiles = []) {
   
   //create text element of parts
   let parts =  [{"text": text_to_add}];
 
-  //if a file_uri is passed, add fileData to parts
-  if (uploadedFile) {
-    const file_data =  { fileData: {
-        fileUri: uploadedFile.uri,
-        mimeType: uploadedFile.mimeType }};
-    parts.push(file_data);
+  // If file uri are passed, add each file's data to parts
+  if (uploadedFiles && uploadedFiles.length > 0) {
+    uploadedFiles.forEach(file => {
+      const file_data = {
+        fileData: {
+          fileUri: file.uri,
+          mimeType: file.mimeType
+        }
+      };
+      parts.push(file_data);
+    });
   }
 
   //create new turn in conversation

@@ -91,6 +91,9 @@
                 // Append each file as a row in the table
                 files.forEach(file => {
                     const row = document.createElement('tr');
+                    // Set custom attributes for later use
+                    row.setAttribute("data-filepath", file.filePath); // Store file name
+                    row.setAttribute("data-mimetype", file.mimeType); // Store MIME type
                     row.innerHTML = `
                         <td>${file.id}</td>
                         <td><a href="${file.filePath}" target="_blank">${file.source}</a></td>
@@ -108,35 +111,85 @@
 
         window.onload = getStudyMaterials;
 
-        function handleUserInput(button) {
-            const userInput = button.previousElementSibling.value.trim(); // Get input value
+        async function handleUserInput(button) {
+            
+            const userInput = button.previousElementSibling.value.trim(); // Get input value from textarea
             if (!userInput) return; // Ignore empty inputs
 
-            const chatBox = document.getElementById("chatBox");
+            //Disable existing input
+            button.previousElementSibling.disabled = true; //disable text area so cannot be edited
+            button.disabled = true; //disable send button as already pressed
 
-            // Create user input box (disable previous input)
-            button.previousElementSibling.disabled = true;
-            button.disabled = true;
+            const responseContainer = addNewSystemOutput();
 
+            // Fetch system response from server
+            try {
+                const fileInfo = fileInfoForLLM(); // Get file info
+                const response = await fetch("/llm_response", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        userInput: userInput,
+                        files: fileInfo
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                const sysResponse = await response.text(); // Assuming the server returns plain text
+                responseContainer.innerHTML = `<div class="response-box">${sysResponse}</div>`;
+            } catch (error) {
+                console.error("Error fetching system response:", error);
+                responseContainer.innerHTML = `<div class="response-box error">Error: Unable to fetch response.</div>`;
+            }
+            addNewUserInput();
+        }
+
+        function addNewSystemOutput() {
             // Create system response box
             const responseContainer = document.createElement("div");
             responseContainer.classList.add("system-response");
             responseContainer.innerHTML = `<div class="response-box">Thinking...</div>`;
-            chatBox.appendChild(responseContainer);
+            return document.getElementById("chatBox").appendChild(responseContainer);
+        }
+        
+        function addNewUserInput(prompt = "Your response") {
+            // Create a new user input box for next user response
+            const newUserInput = document.createElement("div");
+            newUserInput.classList.add("user-input");
+            newUserInput.innerHTML = `
+                <textarea placeholder = "${prompt}" rows="3"></textarea>
+                <button class="submit-btn" onclick="handleUserInput(this)">Send</button>
+            `;
+            document.getElementById("chatBox").appendChild(newUserInput);
+        }
 
-            // Simulate system response (replace with actual AI logic)
-            setTimeout(() => {
-                responseContainer.innerHTML = `<div class="response-box">System response to: "${userInput}"</div>`;
+        function runChat() {
+            // Clear the chat box before starting a new conversation
+            document.getElementById("chatBox").innerHTML = "";
+            //Start new chat
+            addNewUserInput("Enter your question here!");
+        }
 
-                // Create a new user input box for next response
-                const newUserInput = document.createElement("div");
-                newUserInput.classList.add("user-input");
-                newUserInput.innerHTML = `
-                    <textarea placeholder="Your response..." rows="3"></textarea>
-                    <button class="submit-btn" onclick="handleUserInput(this)">Send</button>
-                `;
-                chatBox.appendChild(newUserInput);
-            }, 1000);
+        function fileInfoForLLM() {
+            {
+                const tableRows = document.querySelectorAll("#studyMaterials table tr"); // Select all rows
+                let fileInfo = [];
+                tableRows.forEach(row => {
+                    // Skip header row (it won't have data attributes)
+                    if (row.hasAttribute("data-filepath")) {
+                        const filePath = row.getAttribute("data-filepath");
+                        const mimeType = row.getAttribute("data-mimetype");
+                        // Add file details to the array
+                        fileInfo.push({ uri: filePath, mimeType: mimeType });
+                    }
+                });
+                return fileInfo;
+            }            
         }
  
     </script>
@@ -149,15 +202,20 @@
         <div id="studyMaterials">Loading...</div>
     </div>
 
+    <div>
+        <h2>Study Options</h2>
+        <button onclick = "runChat()">Chat</button>
+    </div>
+
     
     <div class="chat-container">
         <h2>Study Training Area</h2>
         <div class="chat-box" id="chatBox">
-            <!-- Initial user input -->
+            <!-- Initial user input 
             <div class="user-input">
                 <textarea placeholder="Type your message..." rows="3"></textarea>
                 <button class="submit-btn" onclick="handleUserInput(this)">Send</button>
-            </div>
+            </div> -->
         </div>
     </div>
 

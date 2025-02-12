@@ -9,6 +9,8 @@ const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 
+const llmApi = require('../gemini-api/llm-api');
+
 const app = express();
 const PORT = 3000;
 const SECRET_KEY = "your_secret_key";
@@ -48,7 +50,10 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-//Middleware: authenticate User via cookie
+
+//************** User, login and authentication code **********************************
+
+//Middleware to authenticate user via cookie
 const authenticateUser = async (req, res, next) => {
     const token = req.cookies.authToken;
     if (!token) {
@@ -64,6 +69,7 @@ const authenticateUser = async (req, res, next) => {
     }
 };
 
+
 //Fetch Current Logged-in User
 app.get('/current-user', authenticateUser, (req, res) => {
     res.json({ username: req.user.username });
@@ -75,33 +81,36 @@ app.post('/login', async (req, res) => {
         const db = await dbPromise;
         const { username, password } = req.body;
 
-        // ✅ Fetch user from SQLite database
+        //Fetch user from SQLite database
         const user = await db.get(`SELECT * FROM users WHERE username = ?`, [username]);
 
         if (!user) {
             return res.status(401).json({ success: false, message: 'Invalid username or password' });
         }
 
-        // ✅ Validate password with bcrypt
+        //Validate password with bcrypt
         const match = await bcrypt.compare(password, user.password_hash);
 
         if (!match) {
             return res.status(401).json({ success: false, message: 'Invalid password' });
         }
 
-        // ✅ Generate JWT token
+        //Generate JWT token
         const token = jwt.sign({ username: user.username }, SECRET_KEY, { expiresIn: '1h' });
 
-        // ✅ Set HTTP-only cookie (for security)
+        //Set HTTP-only cookie (for security)
         res.cookie('authToken', token, { httpOnly: true, secure: false, maxAge: 3600000 });
 
-        res.status(200).json({ success: true, redirectUrl: '/file_uploader.html' });
+        res.status(200).json({ success: true, redirectUrl: '/courses.html' });
 
     } catch (error) {
         console.error("Login error:", error);
         res.status(500).json({ success: false, message: 'Server error. Try again.' });
     }
 });
+
+//************** End of User, login and authentication code **********************************
+
 
 //Upload File with UUID Filename but keep original name in source field
 app.post('/upload', authenticateUser, upload.single('file'), async (req, res) => {
@@ -140,7 +149,7 @@ app.get('/files/details', authenticateUser, async (req, res) => {
         // Use placeholders in SQL to prevent injection
         const placeholders = fileIds.map(() => '?').join(',');
         const files = await db.all(
-            `SELECT id, source, filePath FROM files WHERE id IN (${placeholders})`, 
+            `SELECT * FROM files WHERE id IN (${placeholders})`, 
             fileIds
         );
 
@@ -262,7 +271,7 @@ app.post('/courses/:id/add-file', authenticateUser, async (req, res) => {
     const { id } = req.params;
     const { fileId } = req.body;
 
-    // ✅ Get current max orderIndex in the course
+    //Get current max orderIndex in the course
     const maxOrder = await db.get(`SELECT MAX(orderIndex) as maxOrder FROM course_files WHERE courseId = ?`, [id]);
     const newOrderIndex = (maxOrder?.maxOrder || 0) + 1;
 
@@ -321,6 +330,42 @@ app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
     }
 });
 
+//********* LLM API related routes **************************************************************/
+
+//Get a chat response from the LLM
+app.post('/llm_response', authenticateUser, async (req, res) => {
+    try {
+        const { userInput, files } = req.body;
+
+        if (!userInput) {
+            return res.status(400).json({ error: "User input is required" });
+        }
+
+        // Upload each file to Gemini and replace local paths with Gemini URIs
+        const uploadedFiles = await Promise.all(
+                files.map(async (file) => {
+                    const localFilePath = path.join(__dirname, '../uploads/', path.basename(file.uri)); // Resolve to absolute path
+                    const geminiFileUri = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
+                    return { uri: geminiFileUri.uri, mimeType: file.mimeType }; // Use Gemini URI
+                }));
+        
+        console.log(uploadedFiles);
+        
+                // Prepare chat history format
+        let chatSoFar = [];
+        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, uploadedFiles);
+
+        // Call the Gemini API via chatResponse
+        const responseText = await llmApi.chatResponse(chatSoFar);
+
+        res.status(200).json({ response: responseText });
+    } catch (error) {
+        console.error("Error getting LLM response:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+//********* End of LLM API related routes **************************************************************/
 
 
 //Start Server
