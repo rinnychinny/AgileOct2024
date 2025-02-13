@@ -9,3 +9,24 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+-- In powershell run Get-Content schema.sql | sqlite3 db.sqlite
+
+-- Create users table
+model User {
+  id           Int     @id @default(autoincrement())
+  username     String  @unique
+  passwordHash String
+  role         String
+  createdAt    DateTime @default(now())
+}
+
+-- Create the "files" table to store metadata and file paths
+model File {
+  id         Int     @id @default(autoincrement())
+  fileName   String
+  filePath   String
+  mimeType   String
+  uploader   String
+  comments   String?
+  createdAt  DateTime @default(now())
+}
