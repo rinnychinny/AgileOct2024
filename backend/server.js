@@ -332,7 +332,40 @@ app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
 
 //********* LLM API related routes **************************************************************/
 
+//Upload files to llm for later reference
+//returns gemini uri to files
+app.post('/llm_upload_file', authenticateUser, async (req, res) => {
+    try {
+        const {files} = req.body;
+
+        if (!files || !Array.isArray(files)) {
+            return res.status(400).json({ error: "Invalid or missing 'files' array in request body" });
+        }
+
+        // Upload each file to Gemini and replace local paths with Gemini URIs
+        const uploadedFiles = await Promise.all(
+            files.map(async (file) => {
+                try {
+                    const localFilePath = path.join(__dirname, '../uploads/', path.basename(file.uri)); // Resolve to absolute path
+                    const geminiFileUri = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
+                    return { uri: geminiFileUri.uri, mimeType: file.mimeType }; // Use Gemini URI
+                } catch (uploadError) {
+                    console.error("Error uploading file to Gemini:", uploadError);
+                    return { uri: null, mimeType: file.mimeType, error: "Upload failed" };
+                }
+            })
+        );
+
+        res.status(200).json({ uploadedFiles });
+    } catch (error) {
+        console.error("Error getting LLM response:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
 //Get a chat response from the LLM
+//files must already have a gemini uri (not local)
 app.post('/llm_response', authenticateUser, async (req, res) => {
     try {
         const { userInput, files } = req.body;
@@ -341,20 +374,12 @@ app.post('/llm_response', authenticateUser, async (req, res) => {
             return res.status(400).json({ error: "User input is required" });
         }
 
-        // Upload each file to Gemini and replace local paths with Gemini URIs
-        const uploadedFiles = await Promise.all(
-                files.map(async (file) => {
-                    const localFilePath = path.join(__dirname, '../uploads/', path.basename(file.uri)); // Resolve to absolute path
-                    const geminiFileUri = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
-                    return { uri: geminiFileUri.uri, mimeType: file.mimeType }; // Use Gemini URI
-                }));
-        
-        console.log(uploadedFiles);
-        
-                // Prepare chat history format
+        //Prepare chat history format
         let chatSoFar = [];
-        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, uploadedFiles);
+        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, files);
 
+        console.log(chatSoFar);
+        
         // Call the Gemini API via chatResponse
         const responseText = await llmApi.chatResponse(chatSoFar);
 
