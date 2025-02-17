@@ -180,7 +180,7 @@
                 const tableRows = document.querySelectorAll("#studyMaterials table tr"); // Select all rows
                 let fileInfo = [];
                 tableRows.forEach(row => {
-                    // Skip header row (it won't have data attributes)
+                    // Skip header row - just need attributes for data rows
                     if (row.hasAttribute("data-filepath")) {
                         const filePath = row.getAttribute("data-filepath");
                         const mimeType = row.getAttribute("data-mimetype");

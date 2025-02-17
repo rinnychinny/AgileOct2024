@@ -26,7 +26,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-//Serve uploaded files statically
+//Serve files from /uploads statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 //Redirect root ("/") to login page
@@ -111,6 +111,7 @@ app.post('/login', async (req, res) => {
 
 //************** End of User, login and authentication code **********************************
 
+//********* Routes related to files *************************************************
 
 //Upload File with UUID Filename but keep original name in source field
 app.post('/upload', authenticateUser, upload.single('file'), async (req, res) => {
@@ -160,7 +161,7 @@ app.get('/files/details', authenticateUser, async (req, res) => {
     }
 });
 
-// ✅ Edit File Metadata
+//Edit File Metadata (comments)
 app.put('/edit/:id', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { comments } = req.body;
@@ -170,23 +171,29 @@ app.put('/edit/:id', authenticateUser, async (req, res) => {
     res.json({ message: "File metadata updated successfully" });
 });
 
-// ✅ Delete File (Also Remove from File System)
+//Delete File (Also Remove from File System)
 app.delete('/delete/:id', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { id } = req.params;
 
-    // ✅ Fetch file path before deleting
+    //Fetch file path before deleting
     const file = await db.get(`SELECT filePath FROM files WHERE id = ?`, [id]);
     if (!file) return res.status(404).json({ message: "File not found" });
 
-    // ✅ Delete file from filesystem
+    //Delete file from filesystem
     const fullFilePath = path.join(__dirname, '../', file.filePath);
     if (fs.existsSync(fullFilePath)) fs.unlinkSync(fullFilePath);
 
-    // ✅ Remove from database
+    //Remove from database
     await db.run(`DELETE FROM files WHERE id = ?`, [id]);
     res.json({ message: "File deleted successfully" });
 });
+
+//********* End of routes related to files *************************************************
+
+
+
+//********* routes related to courses *************************************************
 
 //Fetch all courses
 app.get('/courses', authenticateUser, async (req, res) => {
@@ -251,15 +258,15 @@ app.post('/courses', authenticateUser, async (req, res) => {
     res.json({ message: "Course created successfully!", courseId: result.lastID });
 });
 
-// ✅ Delete a course (Removes the course and its associated files)
+//Delete a course (Removes the course and its associated files)
 app.delete('/courses/:id', authenticateUser, async (req, res) => {
     const db = await dbPromise;
     const { id } = req.params;
 
-    // ✅ Delete associated files from the course_files table
+    //Delete associated files from the course_files table
     await db.run(`DELETE FROM course_files WHERE courseId = ?`, [id]);
 
-    // ✅ Delete the course itself
+    //Delete the course itself
     await db.run(`DELETE FROM courses WHERE id = ?`, [id]);
 
     res.json({ message: "Course deleted successfully!" });
@@ -330,7 +337,10 @@ app.put('/courses/:id/update-order', authenticateUser, async (req, res) => {
     }
 });
 
-//********* LLM API related routes **************************************************************/
+//********* End of routes related to courses *************************************************
+
+
+//********* LLM API related routes ***********************************************************
 
 //Upload files to llm for later reference
 //returns gemini uri to files

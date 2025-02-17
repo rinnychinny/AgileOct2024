@@ -1,17 +1,19 @@
 const llm = require('./llm-api');
 
-const test_file_path = 'LLM-Work.pdf'
+const test_file_path = './LLM-Work.pdf'
 
 async function main() {
     
     //First upload file to LLM
     const uploadedFile = await llm.uploadFile(test_file_path);
     
-    await testChat(uploadedFile);
+    //console.log(uploadedFile);
+    
+    //await testChat(uploadedFile);
     
     //await testSummary(uploadedFile);
 
-    //await testQuiz(uploadedFile);
+    await testQuiz(uploadedFile);
 
 
   
