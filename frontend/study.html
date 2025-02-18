@@ -151,6 +151,55 @@
         window.onload = getStudyMaterials;
 
         async function handleUserInput(button) {
+            const userInput = button.previousElementSibling.value.trim(); // Get input value from textarea
+            if (!userInput) return; // Ignore empty inputs
+
+            // Disable existing input
+            button.previousElementSibling.disabled = true; // Disable text area so it cannot be edited
+            button.disabled = true; // Disable send button as already pressed
+
+            const responseContainer = addNewSystemOutput();
+
+            try {
+                const fileInfo = fileInfoForLLM(); // Get file info
+                const response = await fetch("/llm_response_stream", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        userInput: userInput,
+                        files: fileInfo
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let accumulatedText = "";
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    accumulatedText += chunk;
+                    responseContainer.innerHTML = `<div class="response-box">${accumulatedText}</div>`;
+                }
+            } catch (error) {
+                console.error("Error fetching system response:", error);
+                responseContainer.innerHTML = `<div class="response-box error">Error: Unable to fetch response.</div>`;
+            }
+            addNewUserInput();
+        }
+
+        
+        
+        /*
+        async function handleUserInput(button) {
             
             const userInput = button.previousElementSibling.value.trim(); // Get input value from textarea
             if (!userInput) return; // Ignore empty inputs
@@ -188,7 +237,8 @@
             }
             addNewUserInput();
         }
-
+        */
+       
         function addNewSystemOutput() {
             // Create system response box
             const responseContainer = document.createElement("div");

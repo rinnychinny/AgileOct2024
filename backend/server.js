@@ -388,12 +388,44 @@ app.post('/llm_response', authenticateUser, async (req, res) => {
         let chatSoFar = [];
         chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, files);
 
-        console.log(chatSoFar);
-        
         // Call the Gemini API via chatResponse
         const responseText = await llmApi.chatResponse(chatSoFar);
 
         res.status(200).json({ response: responseText });
+    } catch (error) {
+        console.error("Error getting LLM response:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+//Get a chat response stream from the LLM
+//files must already have a gemini uri (not local)
+app.post('/llm_response_stream', authenticateUser, async (req, res) => {
+    try {
+        const { userInput, files } = req.body;
+
+        if (!userInput) {
+            return res.status(400).json({ error: "User input is required" });
+        }
+
+        //Prepare chat history format
+        let chatSoFar = [];
+        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, files);
+
+        // Set response headers for streaming
+        res.setHeader("Content-Type", "text/plain");
+        res.setHeader("Transfer-Encoding", "chunked");
+        
+        //Call the llm API via chatResponseStream to get a stream
+        const resultStream = await llmApi.chatResponseStream(chatSoFar);
+
+        //Stream the response as chunks
+        for await (const chunk of resultStream) {
+            res.write(chunk.text()); // Send each chunk immediately
+        }
+
+        res.end(); // End response when streaming is complete
+
     } catch (error) {
         console.error("Error getting LLM response:", error);
         res.status(500).json({ error: "Internal server error" });
