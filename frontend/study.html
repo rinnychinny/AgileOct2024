@@ -179,14 +179,12 @@
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let accumulatedText = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
 
-                    const chunk = decoder.decode(value, { stream: true });
-                    accumulatedText += chunk;
+                    const accumulatedText = decoder.decode(value, { stream: true });
                     responseContainer.innerHTML = `<div class="response-box">${accumulatedText}</div>`;
                 }
             } catch (error) {

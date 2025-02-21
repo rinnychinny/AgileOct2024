@@ -417,12 +417,9 @@ app.post('/llm_response_stream', authenticateUser, async (req, res) => {
         res.setHeader("Transfer-Encoding", "chunked");
         
         //Call the llm API via chatResponseStream to get a stream
-        const resultStream = await llmApi.chatResponseStream(chatSoFar);
-
-        //Stream the response as chunks
-        for await (const chunk of resultStream) {
-            res.write(chunk.text()); // Send each chunk immediately
-        }
+        const resultStream = await llmApi.chatResponseStream(chatSoFar, (chunk) => {
+            res.write(chunk); // Send each chunk immediately to the client
+        });
 
         res.end(); // End response when streaming is complete
 

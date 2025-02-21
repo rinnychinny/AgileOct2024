@@ -102,22 +102,26 @@ async function chatResponseStream(chatSoFar, onStreamUpdate) {
 
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
+  try {
+  
   const resultStream = await model.generateContentStream({contents: chatSoFar});
 
   let accumulatedText = "";
-
-  for await (const chunk of resultStream) {
-      const textChunk = chunk.text(); // Extract the streamed text
-      accumulatedText += textChunk;
+  for await (const chunk of resultStream.stream) {
+    
+    const textChunk = chunk.text(); // Extract the streamed text
+    accumulatedText += textChunk;
       if (onStreamUpdate) {
           onStreamUpdate(accumulatedText); //callback to update client
       }
+  	}
+    return accumulatedText;
   }
-
-  return accumulatedText;
-
-  //return result.response.text();
-  
+  catch (error) {
+    console.error("Error in chatResponseStream:", error);
+    return `Error: ${error.message}`;
+  }
+ 
 }
 
 
