@@ -5,15 +5,15 @@ const test_file_path = './LLM-Work.pdf'
 async function main() {
     
     //First upload file to LLM
-    const uploadedFile = await llm.uploadFile(test_file_path);
+    const uploadedFiles = await llm.uploadFile(test_file_path);
     
     //console.log(uploadedFile);
     
     //await testChat(uploadedFile);
     
-    //await testSummary(uploadedFile);
+    //await testSummary([uploadedFiles]);
 
-    await testQuiz(uploadedFile);
+    await testQuiz([uploadedFiles]);
 
 
   
@@ -23,7 +23,7 @@ async function main() {
   main();
 
 
-  async function testChat(uploadedFile) {
+  async function testChat(uploadedFiles) {
 
     chat_so_far = [];
     chat_so_far = llm.chat_add_response(chat_so_far, "user", "please let me know how you feel today");
@@ -31,7 +31,7 @@ async function main() {
     result = await llm.chatResponse(chat_so_far);
     chat_so_far = llm.chat_add_response(chat_so_far, "assistant", result);
 
-    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please summarise the doc", uploadedFile);
+    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please summarise the doc", uploadedFiles);
 
     result = await llm.chatResponse(chat_so_far);
 
@@ -40,21 +40,20 @@ async function main() {
 }
 
 
-
-  async function testSummary(uploadedFile) {
-    //Then ask for summary
+  //Function to test summary
+  async function testSummary(uploadedFiles) {
     console.log('Summary:');
-    console.log(await llm.summariseFile(uploadedFile));
+    console.log(await llm.summariseFile(uploadedFiles));
   }
 
 
-async function testQuiz(uploadedFile) {
+async function testQuiz(uploadedFiles) {
 
     console.log('Quiz:');
     
     //Gather questions based on file
     const num_questions = 2
-    const questions = await llm.generateQuiz(uploadedFile, num_questions);
+    const questions = await llm.generateQuiz(uploadedFiles, num_questions);
     
     //Gather user answers
     const userAnswers = [];
