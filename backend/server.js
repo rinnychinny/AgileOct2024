@@ -357,8 +357,10 @@ app.post('/llm_upload_file', authenticateUser, async (req, res) => {
             files.map(async (file) => {
                 try {
                     const localFilePath = path.join(__dirname, '../uploads/', path.basename(file.uri)); // Resolve to absolute path
-                    const geminiFileUri = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
-                    return { uri: geminiFileUri.uri, mimeType: file.mimeType }; // Use Gemini URI
+                    //const geminiFileUri = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
+                    const geminiFileData = await llmApi.uploadFile(localFilePath, file.mimeType); // Upload and get Gemini file URI
+                    //return { uri: geminiFileUri.uri, mimeType: file.mimeType }; // Use Gemini URI
+                    return geminiFileData;
                 } catch (uploadError) {
                     console.error("Error uploading file to Gemini:", uploadError);
                     return { uri: null, mimeType: file.mimeType, error: "Upload failed" };

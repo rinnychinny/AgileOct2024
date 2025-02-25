@@ -22,7 +22,9 @@ async function uploadFile(filePath, fileMimeType = null) {
       mimeType: detectedMimeType,  // Ensure MIME type is always set
     });
 
-    return uploadResult.file;
+    //return uploadResult.file;
+    return { uri: uploadResult.file.uri, mimeType: detectedMimeType }; // Return Gemini URI and mime type
+
   }
   catch (error) {
     console.error('Error uploading file:', error);
@@ -35,15 +37,14 @@ async function uploadFile(filePath, fileMimeType = null) {
 //********************************************************************************
 
 //file needs to be already uploaded via uploadFile
-async function summariseFile(uploadedFile) {
+async function summariseFile(uploadedFiles) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-  const summary = await model.generateContent([
-    { text: "Summarise this document" },
-    { fileData: {
-          fileUri: uploadedFile.uri,
-          mimeType: uploadedFile.mimeType }
-    }
-  ]);
+  
+  const prompt = "Summarise each entire document in less than 100 words";
+  let chat = [];
+  chat = chat_add_response(chat, "user", prompt, uploadedFiles);
+  
+  const summary = await model.generateContent({contents: chat});
   return summary.response.text();
 }
 
@@ -55,12 +56,8 @@ async function summariseFile(uploadedFile) {
 //********* chat functionality ***************************************************
 //********************************************************************************
 
-//helper function to create multi turn chats in the correct format
-function chat_add_response(chat, role_to_add, text_to_add, uploadedFiles = []) {
-  
-  //create text element of parts
-  let parts =  [{"text": text_to_add}];
-
+//helper function to add file data for uploaded files to a parts array 
+function add_file_data(parts, uploadedFiles) {
   // If file uri are passed, add each file's data to parts
   if (uploadedFiles && uploadedFiles.length > 0) {
     uploadedFiles.forEach(file => {
@@ -73,6 +70,15 @@ function chat_add_response(chat, role_to_add, text_to_add, uploadedFiles = []) {
       parts.push(file_data);
     });
   }
+}
+
+//helper function to create multi turn chats in the correct format
+function chat_add_response(chat, role_to_add, text_to_add, uploadedFiles = []) {
+  
+  //create text element of parts
+  let parts =  [{"text": text_to_add}];
+
+  add_file_data(parts, uploadedFiles);
 
   //create new turn in conversation
   const new_item = {
@@ -135,22 +141,20 @@ async function chatResponseStream(chatSoFar, onStreamUpdate) {
 //********************************************************************************
 
 //generates an array of question/answer pairs of size num_questions
-async function generateQuiz(uploadedFile, num_questions = 2) {
+async function generateQuiz(uploadedFiles, num_questions = 2) {
+  
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
-  const quizResult = await model.generateContent([
-    {
-      text: `Based on the content of this file, generate ${num_questions} quiz questions. 
+  const prompt = `Based on the content of these files, generate ${num_questions} quiz questions. 
              Format the output as a JSON array of objects, each containing 'question' and 'answer' fields.
              The 'answer' field should contain your model answer.
-             Include enough detail in your model answer that it can be used to evaluate another answer given tot he question for correctness.`,
-    },
-    { fileData: {
-      fileUri: uploadedFile.uri,
-      mimeType: uploadedFile.mimeType }
-    }
-]);
-
+             Include enough detail in your model answer that it can be used later to evaluate a user answer given to the question for correctness.`;
+  
+  let chat = [];
+  
+  chat = chat_add_response(chat, "user", prompt, uploadedFiles);
+  
+  const quizResult = await model.generateContent({contents: chat});
   const rawResponse = quizResult.response.text();
   const quizQuestions = json_from_array(rawResponse);
   return quizQuestions;
