@@ -392,6 +392,21 @@ app.post('/llm_get_quiz', authenticateUser, async (req, res) => {
     }
 });
 
+//Get a quiz evaluation from the LLM
+//Based on the model answer, so files not required
+app.post('/llm_eval_quiz', authenticateUser, async (req, res) => {
+    try {
+        const {QandA} = req.body;
+
+        // Call the Gemini API quiz evaluation
+        const evaluateQuiz = await llmApi.evaluateAllAnswers(QandA);
+
+        res.status(200).json({ response: evaluateQuiz });
+    } catch (error) {
+        console.error("Error getting LLM quiz:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
 
 //Get a chat response from the LLM
 //files must already have a gemini uri (not local)

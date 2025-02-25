@@ -200,7 +200,7 @@ async function evaluateAllAnswers(answers) {
     Questions and Answers:
     ${answers.map((a, i) => `
     ${i + 1}. Question: ${a.question}
-       Correct Answer: ${a.correctAnswer}
+       Correct Answer: ${a.answer}
        User's Answer: ${a.userAnswer}
     `).join('\n')}
 
