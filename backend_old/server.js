@@ -24,7 +24,7 @@ const dbPromise = open({
 //Middleware
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend_old')));
 
 //Serve files from /uploads statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

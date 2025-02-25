@@ -222,13 +222,85 @@
         }
 
         //initiates quiz funcitonality in the study area
-        function runQuiz() {
+        async function runQuiz() {
             // Clear the quiz box before starting a new quiz
             document.getElementById("quizBox").innerHTML = "";
             addNewSystemOutput("quizBox", "Wait a moment while I generate a quiz for you...");
-
+            quizData = await fetchQuizData(); 
+            nextQuizQandA(quizData,0);
         }        
+
+        function createUserInputDiv() {
+            const userInputDiv = document.createElement("div");
+            userInputDiv.classList.add("user-input");
+
+            const textarea = document.createElement("textarea");
+            textarea.placeholder = "Enter Text Here";
+            textarea.rows = 3;           // Directly set the rows property
+
+            const sendButton = document.createElement("button");
+            sendButton.textContent = "Send";
+            sendButton.classList.add("submit-btn");
+
+            userInputDiv.appendChild(textarea);
+            userInputDiv.appendChild(sendButton);
+
+            return userInputDiv;  // Return the whole div
+    }
+
         
+        function nextQuizQandA(quizData, n) {
+
+            if (n>=quizData.length) {
+                addNewSystemOutput("quizBox", "Quiz Evaluation:");
+                return;}
+
+            addNewSystemOutput("quizBox", quizData[n].question);
+            // Create a new user input box for user quiz answer and append to quiz area
+            const newUserInput = createUserInputDiv();
+            document.getElementById("quizBox").appendChild(newUserInput);
+
+            //Access the textarea and sendButton from userInputDiv
+            const textarea = newUserInput.querySelector("textarea");
+            const sendButton = newUserInput.querySelector("button.submit-btn");
+            // Add event listener to the send button
+            sendButton.addEventListener("click", function() {
+                const userAnswer = textarea.value; // Get the user's answer
+                console.log("User answered:", userAnswer); // Process the answer
+                nextQuizQandA(quizData, n + 1); // Move to the next question
+            });
+
+        }
+
+        async function fetchQuizData() {
+            try {
+                const fileInfo = fileInfoForLLM(); // Get file info
+                const response = await fetch("/llm_get_quiz", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        files: fileInfo
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.statusText}`);
+                }
+
+                const obj = await response.json();
+                return obj.response;
+
+            } catch (error) {
+                console.error("Error fetching system response:", error);
+                throw error;
+            }
+
+        }
+
+
+
         //gets array of JSON containing uploaded file URIs and mime type
         function fileInfoForLLM() {
             const tableRows = document.querySelectorAll("#studyMaterials table tr");
