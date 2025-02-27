@@ -7,7 +7,11 @@ const fileManager = new GoogleAIFileManager(API_KEY);
 const genAI = new GoogleGenerativeAI(API_KEY);
 const mime = require('mime-types');
 
-//upload files to Gemini for later use via a uri 
+//********************************************************************************
+//******* upload file functionality *******************************************
+//********************************************************************************
+
+//upload files to Gemini (google cloud) for later use via a uri - a google cloud uri MUST be provided (not local uri) in other calls 
 //Gemini always needs MIME file type so lookup when not provided, throw an error if not found
 async function uploadFile(filePath, fileMimeType = null) {
   try {
@@ -37,10 +41,11 @@ async function uploadFile(filePath, fileMimeType = null) {
 //********************************************************************************
 
 //file needs to be already uploaded via uploadFile
-async function summariseFile(uploadedFiles) {
+//summarise in maximum nWords
+async function summariseFile(uploadedFiles, nWords = 100) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
   
-  const prompt = "Summarise each entire document in less than 100 words";
+  const prompt = `Summarise each entire document (not individual pages) in less than ${nWords} words`;
   let chat = [];
   chat = chat_add_response(chat, "user", prompt, uploadedFiles);
   
@@ -189,8 +194,11 @@ async function evaluateAnswer(question, correctAnswer, userAnswer) {
 }
 
 //evalutes all user answers
+//answers is an array of JSON objects
+//each JSON objet of the form {question:, answer:, userAnswer:}
 async function evaluateAllAnswers(answers) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+  //create prompt asking for evaluation of all user answers versus model answer
   const prompt = `
     Evaluate the following quiz answers. For each answer, provide:
     1. Whether it's correct (true/false)
@@ -212,10 +220,12 @@ async function evaluateAllAnswers(answers) {
       "explanation": string
     }
   `;
+  //generate response
   const result = await model.generateContent(
     [{ text: prompt }],
     { response_mime_type: "application/json" }
   );
+  //strip markdown backticks
   const evaluations = json_from_array(result.response.text());
   return evaluations;
 }

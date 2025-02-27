@@ -9,14 +9,14 @@ async function main() {
     
     //console.log(uploadedFile);
     
-    //await testChat(uploadedFile);
+    //test chat
+    //await testChat([uploadedFiles]);
     
-    //await testSummary([uploadedFiles]);
+    //test summary
+    await testSummary([uploadedFiles]);
 
-    await testQuiz([uploadedFiles]);
-
-
-  
+    //test quiz
+    //await testQuiz([uploadedFiles]);
 
   }
   
@@ -25,31 +25,44 @@ async function main() {
 
   async function testChat(uploadedFiles) {
 
-    chat_so_far = [];
-    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please let me know how you feel today");
+    console.log("Testing Chat.....");
+    
+    //create array to hold multi turn chat history of requests and responses
+    let chat_so_far = [];
+    
+    let prompt = "tell me anout developments in AI today"
+    //add user prompt to chat history
+    chat_so_far = llm.chat_add_response(chat_so_far, "user", prompt);
 
+    //get system response to user prompt
     result = await llm.chatResponse(chat_so_far);
-    chat_so_far = llm.chat_add_response(chat_so_far, "assistant", result);
-
-    chat_so_far = llm.chat_add_response(chat_so_far, "user", "please summarise the doc", uploadedFiles);
-
-    result = await llm.chatResponse(chat_so_far);
-
     console.log(result);
 
-}
+    //add response to chat history
+    chat_so_far = llm.chat_add_response(chat_so_far, "assistant", result);
+
+    //add next user prompt    
+    chat_so_far = llm.chat_add_response(chat_so_far, "user", "Please summarise the doc and indicate where it relates to your previous response", uploadedFiles);
+
+    //get next system response
+    result = await llm.chatResponse(chat_so_far);
+    console.log(result);
+
+  }
 
 
   //Function to test summary
   async function testSummary(uploadedFiles) {
-    console.log('Summary:');
-    console.log(await llm.summariseFile(uploadedFiles));
+    console.log('Testing Summary:');
+    const nWords = 50;
+    console.log(await llm.summariseFile(uploadedFiles, nWords));
   }
 
 
-async function testQuiz(uploadedFiles) {
+  //function to test quiz functionality
+  async function testQuiz(uploadedFiles) {
 
-    console.log('Quiz:');
+    console.log('Testing Quiz:');
     
     //Gather questions based on file
     const num_questions = 2
