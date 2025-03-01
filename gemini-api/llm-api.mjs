@@ -178,7 +178,7 @@ async generateQuiz(uploadedFiles, num_questions = 2) {
     
     const quizResult = await model.generateContent({contents: chat});
     const rawResponse = quizResult.response.text();
-    const quizQuestions = json_from_array(rawResponse);
+    const quizQuestions = GeminiClient.json_from_array(rawResponse);
     return quizQuestions;
   }
   catch (error) {
@@ -255,7 +255,7 @@ try {
     { response_mime_type: "application/json" }
   );
   //strip markdown backticks
-  const evaluations = json_from_array(result.response.text());
+  const evaluations = GeminiClient.json_from_array(result.response.text());
   return evaluations;
 }
 catch(error) {
@@ -273,7 +273,7 @@ catch(error) {
 
 //responses contains markdown backticks which need to be removed
 //return the json from just the part contained in [...]
-json_from_array(rawResponse) {
+static json_from_array(rawResponse) {
 try {
   const jsonStart = rawResponse.indexOf('[');
   const jsonEnd = rawResponse.lastIndexOf(']') + 1;

@@ -4,26 +4,24 @@ const test_file_path = './LLM-Work.pdf'
 
 import readline from 'readline';
 
+//Create class instance with Gemini API key
 const API_KEY = 'AIzaSyCgWrQpxjatd_Na-6_FflB4vHeXyGSbr1Q' 
 const llm = new GeminiClient(API_KEY);
 
 async function main() {
-    
-    //First create class instance with Gemini API key
-
-    //Then upload file to LLM
+    //Upload file to LLM
     const uploadedFiles = await llm.uploadFile(test_file_path);
     
     //console.log(uploadedFile);
     
     //test chat
-    //await testChat([uploadedFiles]);
+    await testChat([uploadedFiles]);
     
     //test summary
     await testSummary([uploadedFiles]);
 
     //test quiz
-    //await testQuiz([uploadedFiles]);
+    await testQuiz([uploadedFiles]);
 
   }
   
@@ -39,17 +37,18 @@ async function main() {
     
     let prompt = "tell me anout developments in AI today"
     //add user prompt to chat history
-    chat_so_far = llm.chat_add_response(chat_so_far, "user", prompt);
+    chat_so_far = GeminiClient.chat_add_response(chat_so_far, "user", prompt);
+    console.log(chat_so_far);
 
     //get system response to user prompt
-    result = await llm.chatResponse(chat_so_far);
+    let result = await llm.chatResponse(chat_so_far);
     console.log(result);
 
     //add response to chat history
-    chat_so_far = llm.chat_add_response(chat_so_far, "assistant", result);
+    chat_so_far = GeminiClient.chat_add_response(chat_so_far, "assistant", result);
 
     //add next user prompt    
-    chat_so_far = llm.chat_add_response(chat_so_far, "user", "Please summarise the doc and indicate where it relates to your previous response", uploadedFiles);
+    chat_so_far = GeminiClient.chat_add_response(chat_so_far, "user", "Please summarise the doc and indicate where it relates to your previous response", uploadedFiles);
 
     //get next system response
     result = await llm.chatResponse(chat_so_far);
