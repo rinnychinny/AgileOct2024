@@ -1,10 +1,17 @@
-const llm = require('./llm-api');
+import GeminiClient from './llm-api.mjs';
 
 const test_file_path = './LLM-Work.pdf'
 
+import readline from 'readline';
+
+const API_KEY = 'AIzaSyCgWrQpxjatd_Na-6_FflB4vHeXyGSbr1Q' 
+const llm = new GeminiClient(API_KEY);
+
 async function main() {
     
-    //First upload file to LLM
+    //First create class instance with Gemini API key
+
+    //Then upload file to LLM
     const uploadedFiles = await llm.uploadFile(test_file_path);
     
     //console.log(uploadedFile);
@@ -83,21 +90,19 @@ async function main() {
     const evaluations = await llm.evaluateAllAnswers(userAnswers);
     
     let totalScore = 0;
-    evaluations.forEach((eval, index) => {
-      console.log(`Question ${eval.questionNumber}:`);
+    evaluations.forEach((evaluation, index) => {
+      console.log(`Question ${evaluation.questionNumber}:`);
       console.log(`Your answer: ${userAnswers[index].userAnswer}`);
-      console.log(`Correct: ${eval.isCorrect}`);
-      console.log(`Score: ${eval.score}`);
-      console.log(`Explanation: ${eval.explanation}`);
+      console.log(`Correct: ${evaluation.isCorrect}`);
+      console.log(`Score: ${evaluation.score}`);
+      console.log(`Explanation: ${evaluation.explanation}`);
       console.log('---');
-      totalScore += eval.score;
+      totalScore += evaluation.score;
     });
   
     const percentScore = totalScore/evaluations.length;
     console.log(`Quiz complete! Your total score: ${percentScore}%`);
 }
-
-const readline = require('readline');
 
 function getUserInput(question) {
   const rl = readline.createInterface({
