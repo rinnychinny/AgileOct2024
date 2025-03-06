@@ -22,7 +22,6 @@ async function main() {
 
     //test quiz
     await testQuiz([uploadedFiles]);
-
   }
   
   main();

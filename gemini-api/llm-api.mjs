@@ -145,7 +145,7 @@ async chatResponseStream(chatSoFar, onStreamUpdate) {
       const textChunk = chunk.text(); // Extract the streamed text
       accumulatedText += textChunk;
         if (onStreamUpdate) {
-            onStreamUpdate(accumulatedText); //callback to update client
+            onStreamUpdate(textChunk); //callback to update client
         }
       }
     return accumulatedText;
@@ -172,7 +172,8 @@ async generateQuiz(uploadedFiles, num_questions = 2) {
     const prompt = `Based on the content of these files, generate ${num_questions} quiz questions. 
                Format the output as a JSON array of objects, each containing 'question' and 'answer' fields.
                The 'answer' field should contain your model answer.
-               Include enough detail in your model answer that it can be used later to evaluate a user answer given to the question for correctness.`;
+               Include enough detail in your model answer that
+               it can be used later to evaluate a user answer given to the question for correctness.`;
     
     let chat = [];
     chat = GeminiClient.chat_add_response(chat, "user", prompt, uploadedFiles);

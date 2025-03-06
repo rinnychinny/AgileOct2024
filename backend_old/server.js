@@ -8,8 +8,16 @@ const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+//const llmApi = require('../gemini-api/llm-api');
 
-const llmApi = require('../gemini-api/llm-api');
+(async () => {
+    const api = await import('../gemini-api/llm-api.mjs'); // Path to your ES module
+    console.log(api.default); // Access default export
+
+
+const GEMINI_API_KEY = 'AIzaSyCgWrQpxjatd_Na-6_FflB4vHeXyGSbr1Q';
+const llmApi = new api.default(GEMINI_API_KEY);
+
 
 const app = express();
 const PORT = 3000;
@@ -408,19 +416,34 @@ app.post('/llm_eval_quiz', authenticateUser, async (req, res) => {
     }
 });
 
+//generates gemini chat fromat from conversation array of {role, text}
+function geminiChatFromConversation(conversation, files) {
+    //Prepare chat history format
+    let chatSoFar = [];
+    let firstTurn = true;
+    for (const conv of conversation) {
+        if (firstTurn) {
+            chatSoFar = api.default.chat_add_response(chatSoFar, conv.role, conv.text, files);
+            firstTurn = false;
+        }
+        else {
+            chatSoFar = api.default.chat_add_response(chatSoFar, conv.role, conv.text, []);
+        }
+    }
+    return chatSoFar;
+}
+
 //Get a chat response from the LLM
 //files must already have a gemini uri (not local)
 app.post('/llm_response', authenticateUser, async (req, res) => {
     try {
-        const { userInput, files } = req.body;
+        const { conversation, files } = req.body;
 
-        if (!userInput) {
+        if (!conversation) {
             return res.status(400).json({ error: "User input is required" });
         }
 
-        //Prepare chat history format
-        let chatSoFar = [];
-        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, files);
+        const chatSoFar = geminiChatFromConversation(conversation, files);
 
         // Call the Gemini API via chatResponse
         const responseText = await llmApi.chatResponse(chatSoFar);
@@ -432,19 +455,18 @@ app.post('/llm_response', authenticateUser, async (req, res) => {
     }
 });
 
+
 //Get a chat response stream from the LLM
 //files must already have a gemini uri (not local)
 app.post('/llm_response_stream', authenticateUser, async (req, res) => {
     try {
-        const { userInput, files } = req.body;
+        const { conversation, files } = req.body;
 
-        if (!userInput) {
+        if (!conversation) {
             return res.status(400).json({ error: "User input is required" });
         }
 
-        //Prepare chat history format
-        let chatSoFar = [];
-        chatSoFar = llmApi.chat_add_response(chatSoFar, "user", userInput, files);
+        const chatSoFar = geminiChatFromConversation(conversation, files);
 
         // Set response headers for streaming
         res.setHeader("Content-Type", "text/plain");
@@ -468,3 +490,5 @@ app.post('/llm_response_stream', authenticateUser, async (req, res) => {
 
 //Start Server
 app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+
+})();
