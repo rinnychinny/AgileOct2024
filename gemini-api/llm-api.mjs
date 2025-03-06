@@ -18,7 +18,8 @@ class GeminiClient {
 //******* upload file functionality *******************************************
 //********************************************************************************
 
-  //upload files to Gemini (google cloud) for later use via a uri - a google cloud uri MUST be provided (not local uri) in other calls 
+  //upload files to Gemini (google cloud) for later use via a uri
+  // - a google cloud uri MUST be provided (not local uri) in other calls 
   //Gemini always needs MIME file type so lookup when not provided, throw an error if not found
   async uploadFile(filePath, fileMimeType = null) {
     try {
@@ -33,8 +34,8 @@ class GeminiClient {
         mimeType: detectedMimeType,  // Ensure MIME type is always set
       });
 
-      //return uploadResult.file;
-      return { uri: uploadResult.file.uri, mimeType: detectedMimeType }; // Return Gemini URI and mime type
+      //Return Gemini URI and mime type
+      return { uri: uploadResult.file.uri, mimeType: detectedMimeType };
     }
     catch (error) {
       console.error('Error uploading file:', error);
