@@ -4,10 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; 
 import { Brain, BookOpen, MessageSquare, FileText, Upload, Send } from 'lucide-react';
 import { useState } from 'react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleAIFileManager } from '@google/generative-ai/server';
 
 export default function Study() {
+
   const [messages, setMessages] = useState<Array<{ type: 'user' | 'ai' | 'file'; content: string }>>([]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [apiData, setApiData] = useState([]);
+
+  const [name, setName] = useState("");
+  const [gender, setGender] = useState("");
+  const [age, setAge] = useState("");
+  const [country, setCountry] = useState("");
+  const [hobbies, setHobbies] = useState("");
 
   const handleSendMessage = () => {
     if (!input.trim()) return;
