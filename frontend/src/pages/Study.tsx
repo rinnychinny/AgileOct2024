@@ -4,6 +4,9 @@ import { Input } from '@/components/ui/input';
 import { FileText, Upload, Send } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+
+
+
 type Message = {
   type: 'user' | 'ai' | 'file';
   content: string;
@@ -17,7 +20,9 @@ export default function StudyChatbot() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Initialize Google Generative AI with your API key
-  const genAI = new GoogleGenerativeAI('?');
+  const gemini_apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+  const genAI = new GoogleGenerativeAI(gemini_apiKey);
   
   // Auto-scroll to bottom of chat
   useEffect(() => {
