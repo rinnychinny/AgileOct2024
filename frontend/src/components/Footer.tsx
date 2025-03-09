@@ -34,8 +34,8 @@ export default function Footer() {
                 <div className="font-medium">Tobias Walk</div>
               </div>
               <div className="space-y-1">
-                <div className="text-sm text-muted-foreground">Student Number: </div>
-                <div className="font-medium">Rich</div>
+                <div className="text-sm text-muted-foreground">Student Number: 200505237</div>
+                <div className="font-medium">Rich Pemberton</div>
               </div>
             </div>
           </div>
