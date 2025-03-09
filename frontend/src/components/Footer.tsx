@@ -31,7 +31,11 @@ export default function Footer() {
               </div>
               <div className="space-y-1">
                 <div className="text-sm text-muted-foreground">Student Number: 3042932323</div>
-                <div className="font-medium">Tobias</div>
+                <div className="font-medium">Tobias Walk</div>
+              </div>
+              <div className="space-y-1">
+                <div className="text-sm text-muted-foreground">Student Number: </div>
+                <div className="font-medium">Rich</div>
               </div>
             </div>
           </div>
