@@ -47,6 +47,8 @@ export default function StudyChatbot() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  //********************Send user request code ******************************/
   const handleSendMessage = async () => {
     if (!input.trim() && files.length === 0) return;
     
@@ -81,6 +83,8 @@ export default function StudyChatbot() {
       setLoading(false);
     }
   };
+  
+  //********************File Upload code ******************************/
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = e.target.files;
     if (!uploadedFiles) return;
@@ -119,6 +123,9 @@ export default function StudyChatbot() {
       //Update state to retain conversation history
       //setChatSoFar(updatedChat);
 
+      //store the prompt
+      const oldPrompt = input.trim();
+
       // Read the text file
       const reader = new FileReader();
       const fileContent = await new Promise<string>((resolve, reject) => {
@@ -133,20 +140,14 @@ export default function StudyChatbot() {
         reader.readAsText(newFile);
       });
       
-      // Add file content as a user message
+      //Add request to upalod file as a user message to display
       setMessages(prev => [...prev, { 
         type: 'user', 
-        content: fileContent 
+        content: `Please upload ${newFile.name}`
       }]);
       
-        // Get the generative model (Gemini-Pro)
-        //const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"  });
-      
-        // For text-only requests
-        const prompt = `This is the content of a file named "${newFile.name}". Please analyze this file content:\n\n${fileContent}`;
-        //const result = await model.generateContent(prompt);
-        //const response =  result.response;
-        //const text = response.text();
+        // For text-only requests, upload the text of the file
+        const prompt = `Here is the content of a file named "${newFile.name}":\n${fileContent}`;
         let updated_chat  = GeminiClient.chat_add_response(chatSoFar, "user", prompt);
 
         const text = await gemini.chatResponse(updated_chat);
@@ -156,8 +157,12 @@ export default function StudyChatbot() {
         //Update state so chat history persists
         setChatSoFar(updated_chat);
   
-      //Add AI response to chat
-      setMessages(prev => [...prev, { type: 'assistant', content: text }]);
+        //Add AI response to chat
+        setMessages(prev => [...prev, { type: 'assistant', content: `${newFile.name} uploaded` }]);
+
+        //In case there was writing in the prompt at the same time, restore it
+        setInput(oldPrompt);
+
 
     } catch (error) {
       console.error('Error processing file:', error);
