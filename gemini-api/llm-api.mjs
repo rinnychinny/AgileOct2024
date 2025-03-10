@@ -18,7 +18,34 @@ class GeminiClient {
 //******* upload file functionality *******************************************
 //********************************************************************************
 
-  //upload files to Gemini (google cloud) for later use via a uri
+// Upload files using FormData (for browser-based uploads)
+async uploadFileFromFormData(formData) {
+  try {
+    // Extract file from FormData
+    const file = formData.get("file");
+    if (!file) {
+      throw new Error("No file found in FormData");
+    }
+
+    // Detect MIME type
+    const detectedMimeType = file.type || "application/octet-stream"; // Fallback if MIME type is missing
+
+    // Upload file using FileManager (passing actual file, not a Blob URL)
+    const uploadResult = await this.fileManager.uploadFile(file, {
+      mimeType: detectedMimeType,
+    });
+
+    // Return the uploaded file's URI and MIME type
+    return { uri: uploadResult.file.uri, mimeType: detectedMimeType };
+
+  } catch (error) {
+    console.error("Error uploading file from FormData:", error);
+    throw error;
+  }
+}
+
+
+//upload files to Gemini (google cloud) for later use via a uri
   // - a google cloud uri MUST be provided (not local uri) in other calls 
   //Gemini always needs MIME file type so lookup when not provided, throw an error if not found
   async uploadFile(filePath, fileMimeType = null) {

@@ -6,6 +6,7 @@ import Login from '@/pages/Login';
 import Study from '@/pages/Study';
 import Courses from '@/pages/Courses';
 import { useEffect, useState } from 'react';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 function App() {
   return (
