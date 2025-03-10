@@ -7,7 +7,16 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+      "@/*": ["./src/*"],
+      "@api/*": ["../../gemini-api/*"] // Alias for gemini-api
+    },
+    "allowJs": true, // Allows TypeScript to work with .mjs files
+    "moduleResolution": "node", //For proper resolution of ES modules
+    "esModuleInterop": true // Enables ES module compatibility
+  },
+  "include": [
+    "src",
+    "../../gemini-api" //TypeScript scans gemini-api for type definitions
+  ]
 }
+

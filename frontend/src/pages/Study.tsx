@@ -3,27 +3,46 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input'; 
 import { FileText, Upload, Send } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+//import { GoogleGenerativeAI } from "@google/generative-ai";
 
-
+import GeminiClient from '../../../gemini-api/llm-api.mjs';
 
 type Message = {
-  type: 'user' | 'ai' | 'file';
+  type: 'user' | 'assistant' | 'file';
   content: string;
   fileName?: string;
 };
+
+type FileData = {
+  fileUri: string;
+  mimeType: string;
+};
+
+type ChatPart = {
+  text?: string;
+  fileData?: FileData[];
+};
+
+type ChatMessage = {
+  role: "user" | "assistant";
+  parts: ChatPart[];
+};
+
+
 export default function StudyChatbot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatSoFar, setChatSoFar] = useState<ChatMessage[]>([]);
+
   
-  // Initialize Google Generative AI with your API key
+  // Initialize Google Generative AI with API key from .env
   const gemini_apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 
-  const genAI = new GoogleGenerativeAI(gemini_apiKey);
-  
+  const gemini = new GeminiClient(gemini_apiKey); 
+
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,19 +60,21 @@ export default function StudyChatbot() {
     setLoading(true);
     
     try {
-      // Get the generative model (Gemini-Pro)
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"  });
-      
-      // For text-only requests
-      const result = await model.generateContent(userQuery);
-      const response =  result.response;
-      const text = response.text();
-      
-      setMessages(prev => [...prev, { type: 'ai', content: text }]);
+
+      let updated_chat  = GeminiClient.chat_add_response(chatSoFar, "user", userQuery);
+
+      const text = await gemini.chatResponse(updated_chat);
+
+      updated_chat = GeminiClient.chat_add_response(updated_chat, "assistant", text);
+
+      //Update state so chat history persists
+      setChatSoFar(updated_chat);
+
+      setMessages(prev => [...prev, { type: 'assistant', content: text }]);
     } catch (error) {
       console.error('Error generating AI response:', error);
       setMessages(prev => [...prev, { 
-        type: 'ai', 
+        type: 'assistant', 
         content: 'Sorry, I encountered an error processing your request. Please try again.' 
       }]);
     } finally {
@@ -66,19 +87,38 @@ export default function StudyChatbot() {
     
     const newFile = uploadedFiles[0];
     if (!newFile) return;
-    
+
+   
     // Check if it's a text file
+    
     if (!newFile.name.endsWith('.txt') && newFile.type !== 'text/plain') {
       setMessages(prev => [...prev, { 
-        type: 'ai', 
+        type: 'assistant', 
         content: 'Sorry, only .txt files are supported at this time.' 
       }]);
       e.target.value = '';
       return;
     }
     
+
     setLoading(true);
     try {
+
+      //create formdata to send the file
+      //const formData = new FormData();
+      //formData.append("file", newFile);
+    
+      //Upload file to LLM
+      //const uploadedFiles = await gemini.uploadFileFromFormData(formData);
+
+      //Add file data to chat history
+      //let updatedChat = GeminiClient.chat_add_response(chatSoFar, "user", uploadedFiles);
+
+      //const text = await gemini.chatResponse(updatedChat);
+
+      //Update state to retain conversation history
+      //setChatSoFar(updatedChat);
+
       // Read the text file
       const reader = new FileReader();
       const fileContent = await new Promise<string>((resolve, reject) => {
@@ -100,21 +140,29 @@ export default function StudyChatbot() {
       }]);
       
         // Get the generative model (Gemini-Pro)
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"  });
+        //const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro"  });
       
         // For text-only requests
         const prompt = `This is the content of a file named "${newFile.name}". Please analyze this file content:\n\n${fileContent}`;
-    const result = await model.generateContent(prompt);
-        const response =  result.response;
-        const text = response.text();
-        
-      
-      // Add AI response to chat
-      setMessages(prev => [...prev, { type: 'ai', content: text }]);
+        //const result = await model.generateContent(prompt);
+        //const response =  result.response;
+        //const text = response.text();
+        let updated_chat  = GeminiClient.chat_add_response(chatSoFar, "user", prompt);
+
+        const text = await gemini.chatResponse(updated_chat);
+
+        updated_chat = GeminiClient.chat_add_response(updated_chat, "assistant", "OK");
+
+        //Update state so chat history persists
+        setChatSoFar(updated_chat);
+  
+      //Add AI response to chat
+      setMessages(prev => [...prev, { type: 'assistant', content: text }]);
+
     } catch (error) {
       console.error('Error processing file:', error);
       setMessages(prev => [...prev, { 
-        type: 'ai', 
+        type: 'assistant', 
         content: 'Sorry, I encountered an error processing your file. Please try again.' 
       }]);
     } finally {
